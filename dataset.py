@@ -7,6 +7,7 @@ class Dataset:
         self.entity2id, self.entity_cnt = {}, 0
         self.relation2id, self.relation_cnt = {}, 0
         self.data = {}
+        self.batch_index = 0
         
         print(f'Loading the dataset {ds_name} ...')
         dir = os.path.join('data', ds_name)
@@ -61,3 +62,14 @@ class Dataset:
             self.entity_cnt += 1
             self.entity2id[x] = self.entity_cnt
         return self.entity2id[x]
+    
+    def get_pos_batch(self, batch_size):
+        if self.batch_index + batch_size < len(self.data['train']):
+            batch = self.data['train'][self.batch_index: self.batch_index + batch_size]
+            self.batch_index += batch_size
+        else:
+            batch = self.data['train'][self.batch_index:]
+            np.random.shuffle(self.data['train'])
+            self.batch_index = 0
+        batch = np.append(batch, np.zeros((len(batch), 1)), axis=1).astype('int') # label
+        batch = np.append(batch, np.zeros((len(batch), 1)), axis=1).astype('int') # arity
