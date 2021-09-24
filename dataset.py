@@ -73,3 +73,4 @@ class Dataset:
             self.batch_index = 0
         batch = np.append(batch, np.zeros((len(batch), 1)), axis=1).astype('int') # label
         batch = np.append(batch, np.zeros((len(batch), 1)), axis=1).astype('int') # arity
+        return batch
