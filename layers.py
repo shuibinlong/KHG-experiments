@@ -32,9 +32,9 @@ class SparseHyperGraphAttentionLayer(nn.Module):
             zero = -9e15*torch.ones(size=(self.max_arity['node'], 1))
             return torch.where(a1u > 0, a1u, zero)
         
-        attention = F.softmax(torch.stack([get_a1u(i) for i in range(M)], dim=0), dim=1)
+        attention = F.softmax(torch.stack([get_a1u(i) for i in range(1, M+1)], dim=0), dim=1)
 
-        new_edge_embs = torch.sum(attention * torch.stack([Wh[edge_list[i], :] for i in range(M)], dim=0), dim=1)
+        new_edge_embs = torch.sum(attention * torch.stack([Wh[edge_list[i], :] for i in range(1, M+1)], dim=0), dim=1)
         assert new_edge_embs.shape == edge_embs.shape
         new_edge_embs = F.dropout(new_edge_embs, self.dropout, training=self.training)
 
@@ -47,9 +47,9 @@ class SparseHyperGraphAttentionLayer(nn.Module):
             a2v[a2v.nonzero().t()[0], :] += a2hi
             return a2v
 
-        attention = F.softmax(torch.stack([get_a2v(i) for i in range(N)], dim=0), dim=1)
+        attention = F.softmax(torch.stack([get_a2v(i) for i in range(1, N+1)], dim=0), dim=1)
 
-        new_node_embs = torch.sum(attention * torch.stack([Wf[node_list[i], :] for i in range(N)], dim=0), dim=1)
+        new_node_embs = torch.sum(attention * torch.stack([Wf[node_list[i], :] for i in range(1, N+1)], dim=0), dim=1)
         assert new_node_embs.shape == node_embs.shape
         new_node_embs = F.dropout(new_node_embs, self.dropout, training=self.training)
 

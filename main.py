@@ -2,8 +2,11 @@ import time
 import torch
 import argparse
 import numpy as np
+from torch.autograd import backward
 from models import *
 from dataset import Dataset
+
+NODE_MAX_ARITY = 6
 
 class Experiment:
     def __init__(self, args):
@@ -12,34 +15,41 @@ class Experiment:
         self.neg_ratio = args.nr
         self.test = args.test
         self.epochs = args.epochs
-        self.device = args.device
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.opt = args.opt
         self.weight_decay = args.weight_decay
-        self.max_arity = {'node': args.node, 'edge': args.edge}
         self.emb_dim = args.emb_dim
         self.hidden_dim = args.hidden_dim
         self.alpha = args.alpha
         self.dropout = args.dropout
         self.nheads = args.nheads
-        self.dataset = Dataset(args.dataset, self.max_arity)
+        self.dataset = Dataset(args.dataset, NODE_MAX_ARITY)
         print('relation_num={}, entity_num={}'.format(self.dataset.relation_cnt, self.dataset.entity_cnt))
 
-        self.node_embs = torch.FloatTensor(np.random.randn(self.dataset.entity_cnt, self.emb_dim)).to(args.device)
-        self.edge_embs = torch.FloatTensor(np.random.randn(self.dataset.relation_cnt, self.emb_dim)).to(args.device)
+        self.node_embs = torch.FloatTensor(np.random.randn(self.dataset.entity_cnt, self.emb_dim)).to(self.device)
+        self.edge_embs = torch.FloatTensor(np.random.randn(self.dataset.relation_cnt, self.emb_dim)).to(self.device)
     
     def load_model(self):
-        self.model = HyperGAT(self.node_embs, self.edge_embs, self.max_arity, self.emb_dim, self.hidden_dim, self.emb_dim, self.alpha, self.dropout, self.nheads)
+        self.model = HyperGAT(self.node_embs, self.edge_embs, self.dataset.max_arity, self.emb_dim, self.hidden_dim, self.emb_dim, self.alpha, self.dropout, self.nheads)
         if self.opt == 'Adagrad':
             self.opt = torch.optim.Adagrad(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
         elif self.opt == "Adam":
             self.opt = torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
         # TODO: model ckpt save & load
+    
+    def batch_loss(self, batch_data, batch_labels):
+        loss_layer = torch.nn.CrossEntropyLoss()
+        x = batch_data[:, 0, :]
+        for i in range(1, self.dataset.max_arity['node']):
+            x *= batch_data[:, i, :]
+        y = torch.sum(x, dim=1)
+        loss = loss_layer(y, batch_labels)
+        return loss
 
     def train_and_eval(self):
         print('Training the model...')
         print('Number of training data points: {}'.format(len(self.dataset.data['train'])))
 
-        loss_layer = torch.nn.CrossEntropyLoss()
         print('Starting training at iteration ...')
         for epoch in range(self.epochs):
             self.model.train()
@@ -54,15 +64,33 @@ class Experiment:
                 it_st = time.time()
                 batch_data, batch_labels = self.dataset.get_next_batch(self.batch_size, self.neg_ratio, self.device)
                 batch_outputs = self.model(batch_data, self.dataset.edge_list, self.dataset.node_list)
-                # TODO: calc loss & bp
+                loss = self.batch_loss(batch_outputs, batch_labels)
+                loss.backward()
                 self.opt.step()
                 it_ed = time.time()
-                print('Iteration #{}: loss={:.4f}, time={:.4f}'.format(it, 0, it_ed - it_st))
-
+                print('Iteration #{}: loss={:.4f}, time={:.4f}'.format(it, loss.item(), it_ed - it_st))
+                epoch_loss.append(loss.item())
+            
+            epoch_ed = time.time()
+            print('Epoch #{}: avg_loss={}, epoch_time={}'.format(epoch, sum(epoch_loss) / len(epoch_loss), epoch_ed - epoch_st))
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument('-dataset', type=str, default='JF17K')
+    parser.add_argument("-test", action="store_true", help="If -test is set, then you must specify a -pretrained model. "
+                        + "This will perform testing on the pretrained model and save the output in -output_dir")
+    parser.add_argument('-lr', type=float, default=1e-2)
+    parser.add_argument('-nr', type=int, default=10)
+    parser.add_argument('-alpha', type=float, default=0.2)
+    parser.add_argument('-dropout', type=float, default=0.0)
+    parser.add_argument('-weight_decay', type=float, default=5e-6)
+    parser.add_argument('-nheads', type=int, default=3)
+    parser.add_argument('-emb_dim', type=int, default=100)
+    parser.add_argument('-hidden_dim', type=int, default=200)
+    parser.add_argument('-batch_size', type=int, default=128)
+    parser.add_argument('-epochs', type=int, default=1000)
+    parser.add_argument('-opt', type=str, default="Adagrad")
     args = parser.parse_args()
 
     experiment = Experiment(args)

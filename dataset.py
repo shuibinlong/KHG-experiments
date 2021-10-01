@@ -5,9 +5,10 @@ import torch
 
 class Dataset:
     def __init__(self, ds_name, max_arity):
-        self.max_arity = max_arity
+        self.max_arity = {'edge': 0, 'node': max_arity}
         self.entity2id, self.entity_cnt = {}, 0
         self.relation2id, self.relation_cnt = {}, 0
+        self.edge_list, self.node_list = {}, {}
         self.data = {}
         self.batch_index = 0
 
@@ -32,6 +33,7 @@ class Dataset:
         for i, line in enumerate(lines):
             record = line.strip().split('\t')
             data[i] = self.record2ids(record)
+            self.parse_adj(record)
         return data
 
     def read_test(self, file_path):
@@ -44,7 +46,25 @@ class Dataset:
         for i, line in enumerate(lines):
             record = line.strip().split('\t')
             data[i] = self.record2ids(record[1:])
+            self.parse_adj(record[1:])
         return data
+
+    def parse_adj(self, record):
+        edge = self.get_relation_id(record[0])
+        for node in record[1:]:
+            self.insert_edge(edge, node)
+            self.insert_node(node, edge)
+
+    def insert_edge(self, edge, node):
+        if edge not in self.edge_list:
+            self.edge_list[edge] = []
+        self.edge_list[edge].append(node)
+    
+    def insert_node(self, node, edge):
+        if node not in self.node_list:
+            self.node_list[node] = []
+        self.node_list[node].append(edge)
+        self.max_arity['edge'] = max(self.max_arity['edge'], len(self.node_list[node]))
 
     def record2ids(self, record):
         res = np.zeros(self.max_arity['node'] + 1)
