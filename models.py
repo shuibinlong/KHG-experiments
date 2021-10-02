@@ -11,7 +11,7 @@ class HyperGAT(nn.Module):
         self.node_embs = nn.Parameter(node_embs)
         self.edge_embs = nn.Parameter(edge_embs)
        
-        self.attentions = [SparseHyperGraphAttentionLayer(nfeat, nhid, max_arity, alpha, dropout, concat=True)]
+        self.attentions = [SparseHyperGraphAttentionLayer(nfeat, nhid, max_arity, alpha, dropout, concat=True) for _ in range(nheads)]
         for i, attention in enumerate(self.attentions):
             self.add_module(f'attention_{i}', attention)
         self.out_attention = SparseHyperGraphAttentionLayer(nhid * nheads, nemb, max_arity, alpha, dropout, concat=False)
@@ -30,9 +30,9 @@ class HyperGAT(nn.Module):
         out_node_embs, out_edge_embs = self.out_attention(out_node_embs, out_edge_embs, edge_list, node_list)
         out_node_embs, out_edge_embs = F.elu(out_node_embs), F.elu(out_edge_embs)
 
-        batch_outputs = torch.zeros(batch_inputs.shape).unsqueeze(2).repeat_interleave(self.emb_dim, 2)
-        batch_outputs[:, 0, :] = out_edge_embs[batch_inputs[:, 0], :]
+        batch_outputs = torch.ones(batch_inputs.shape).unsqueeze(2).repeat_interleave(self.emb_dim, 2)
+        batch_outputs[:, 0, :] = out_edge_embs[batch_inputs[:, 0]-1, :]
         for i in range(len(batch_inputs)):
-            right = batch_inputs[i, :-1].nonzero()[0][-1] + 1
-            batch_outputs[i, 1:right, :] = out_node_embs[batch_outputs[i, 1:right], :]
+            right = batch_inputs[i, :].nonzero()[-1][0] + 1
+            batch_outputs[i, 1:right, :] = out_node_embs[batch_inputs[i, 1:right]-1, :]
         return batch_outputs
