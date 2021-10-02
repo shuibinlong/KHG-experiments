@@ -52,7 +52,7 @@ class Experiment:
         return seq
 
     def padd(self, a, max_length):
-        b = F.pad(a, (0,max_length - len(a)), 'constant', -math.inf)
+        b = F.pad(a, (0, max_length - len(a)), 'constant', -math.inf)
         return b
 
     def padd_and_decompose(self, targets, predictions, max_length):
@@ -106,7 +106,7 @@ if __name__ == '__main__':
     parser.add_argument('-dataset', type=str, default='JF17K')
     parser.add_argument("-test", action="store_true", help="If -test is set, then you must specify a -pretrained model. "
                         + "This will perform testing on the pretrained model and save the output in -output_dir")
-    parser.add_argument('-lr', type=float, default=1e-2)
+    parser.add_argument('-lr', type=float, default=5e-5)
     parser.add_argument('-nr', type=int, default=10)
     parser.add_argument('-alpha', type=float, default=0.2)
     parser.add_argument('-dropout', type=float, default=0.0)
