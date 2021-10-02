@@ -104,7 +104,7 @@ class Dataset:
         pos_batch = self.get_pos_batch(batch_size)
         batch = self.gen_neg_batch(pos_batch, neg_ratio)
         batch_edges = torch.Tensor(batch[:, :-2]).long().to(device)
-        batch_labels = torch.Tensor(batch[:, -2]).long().to(device)
+        batch_labels = torch.Tensor(batch[:, -2]).long()
         return batch_edges, batch_labels
 
     def get_pos_batch(self, batch_size):
