@@ -45,7 +45,7 @@ class SparseHyperGraphAttentionLayer(nn.Module):
         def get_a2v(i):
             a2v = Wf[node_list[i]-1, :].mm(self.a2[:self.out_features, :])
             a2hi = torch.mm(Wh[i-1].unsqueeze(0), self.a2[self.out_features:, :])
-            a2v[a2v.nonzero().t()[0], :] = a2v[a2v.nonzero().t()[0], :] + a2hi
+            a2v[a2v.nonzero().t()[0], :] += a2hi
             return a2v
 
         attention = F.softmax(torch.stack([get_a2v(i) for i in range(1, N+1)], dim=0), dim=1)
