@@ -63,7 +63,7 @@ class Experiment:
         loss_layer = torch.nn.CrossEntropyLoss()
         x = batch_data[:, 0, :]
         for i in range(1, self.dataset.data_arity):
-            x *= batch_data[:, i, :]
+            x = x * batch_data[:, i, :]
         y = torch.sum(x, dim=1)
         # TODO: readout this part
         number_of_positive = len(np.where(batch_labels > 0)[0])
