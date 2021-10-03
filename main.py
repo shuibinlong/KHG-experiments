@@ -67,7 +67,7 @@ class Experiment:
         y = torch.sum(x, dim=1)
         # TODO: readout this part
         number_of_positive = len(np.where(batch_labels > 0)[0])
-        predictions = self.padd_and_decompose(batch_labels, y, self.neg_ratio*self.dataset.data_arity)
+        predictions = self.padd_and_decompose(batch_labels, y, self.neg_ratio*self.dataset.data_arity).to(self.deivce)
         targets = torch.zeros(number_of_positive).long().to(self.device)
         loss = loss_layer(predictions, targets)
         return loss
