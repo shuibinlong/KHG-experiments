@@ -33,7 +33,5 @@ class HyperGAT(nn.Module):
 
         batch_outputs = torch.ones(batch_inputs.shape).unsqueeze(2).repeat_interleave(self.emb_dim, 2)
         batch_outputs[:, 0, :] = out_edge_embs[batch_inputs[:, 0]-1, :]
-        for i in range(len(batch_inputs)):
-            right = batch_inputs[i, :].nonzero()[-1][0] + 1
-            batch_outputs[i, 1:right, :] = out_node_embs[batch_inputs[i, 1:right]-1, :]
+        batch_outputs[:, 1:, :] = torch.where(batch_inputs.unsqueeze(2)[:, 1:, :] > 0, out_node_embs[batch_inputs[:, 1:]-1], batch_outputs[:, 1:, :])
         return batch_outputs
