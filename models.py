@@ -4,17 +4,18 @@ import torch.nn.functional as F
 from layers import SparseHyperGraphAttentionLayer
 
 class HyperGAT(nn.Module):
-    def __init__(self, node_embs, edge_embs, max_arity, nfeat, nhid, nemb, alpha, dropout, nheads):
+    def __init__(self, node_embs, edge_embs, max_arity, nfeat, nhid, nemb, alpha, dropout, nheads, device):
         super().__init__()
         self.emb_dim = nemb
         self.dropout = dropout
+        self.device = device
         self.node_embs = nn.Parameter(node_embs)
         self.edge_embs = nn.Parameter(edge_embs)
        
-        self.attentions = [SparseHyperGraphAttentionLayer(nfeat, nhid, max_arity, alpha, dropout, concat=True) for _ in range(nheads)]
+        self.attentions = [SparseHyperGraphAttentionLayer(nfeat, nhid, max_arity, alpha, dropout, device, concat=True) for _ in range(nheads)]
         for i, attention in enumerate(self.attentions):
             self.add_module(f'attention_{i}', attention)
-        self.out_attention = SparseHyperGraphAttentionLayer(nhid * nheads, nemb, max_arity, alpha, dropout, concat=False)
+        self.out_attention = SparseHyperGraphAttentionLayer(nhid * nheads, nemb, max_arity, alpha, dropout, device, concat=False)
 
     def forward(self, batch_inputs, edge_list, node_list):
         node_embs_list, edge_embs_list = [], []

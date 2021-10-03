@@ -4,8 +4,9 @@ import torch
 
 
 class Dataset:
-    def __init__(self, ds_name, data_arity):
+    def __init__(self, ds_name, data_arity, device):
         self.data_arity = data_arity
+        self.device = device
         self.max_arity = {'edge': 0, 'node': 0}
         self.entity2id, self.entity_cnt = {}, 0
         self.relation2id, self.relation_cnt = {}, 0
@@ -52,16 +53,19 @@ class Dataset:
         return data
     
     def process_list(self):
+        new_edge_list = torch.empty((self.relation_cnt, self.max_arity['node']), dtype=torch.long).to(self.device)
         for i in range(1, self.relation_cnt + 1):
             raw = np.array(list(self.edge_list[i]))
             fixed = np.zeros(self.max_arity['node'] - len(self.edge_list[i]))
-            self.edge_list[i] = np.concatenate((raw, fixed))
-            assert self.edge_list[i].shape[0] == self.max_arity['node']
+            new_edge_list[i-1] = torch.LongTensor(np.concatenate((raw, fixed)))
+            assert new_edge_list[i-1].shape[0] == self.max_arity['node']
+        new_node_list = torch.empty((self.entity_cnt, self.max_arity['edge']), dtype=torch.long).to(self.device)
         for i in range(1, self.entity_cnt + 1):
             raw = np.array(list(self.node_list[i]))
             fixed = np.zeros(self.max_arity['edge'] - len(self.node_list[i]))
-            self.node_list[i] = np.concatenate((raw, fixed))
-            assert self.node_list[i].shape[0] == self.max_arity['edge']
+            new_node_list[i-1] = torch.LongTensor(np.concatenate((raw, fixed)))
+            assert new_node_list[i-1].shape[0] == self.max_arity['edge']
+        self.edge_list, self.node_list = new_edge_list, new_node_list
 
     def parse_adj(self, record):
         edge = self.get_relation_id(record[0])
@@ -100,10 +104,10 @@ class Dataset:
             self.entity2id[x] = self.entity_cnt
         return self.entity2id[x]
 
-    def get_next_batch(self, batch_size, neg_ratio, device):
+    def get_next_batch(self, batch_size, neg_ratio):
         pos_batch = self.get_pos_batch(batch_size)
         batch = self.gen_neg_batch(pos_batch, neg_ratio)
-        batch_edges = torch.Tensor(batch[:, :-2]).long().to(device)
+        batch_edges = torch.Tensor(batch[:, :-2]).long().to(self.device)
         batch_labels = torch.Tensor(batch[:, -2]).long()
         return batch_edges, batch_labels
 
