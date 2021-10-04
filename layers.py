@@ -32,9 +32,9 @@ class SparseHyperGraphAttentionLayer(nn.Module):
         a1us = self.leakyrelu(Wh[edge_list-1]).matmul(self.a1).squeeze()
         edge_4att = torch.where(edge_list > 0, a1us, zeros)
         attention = F.softmax(edge_4att, dim=1).unsqueeze(2)
+        attention = F.dropout(attention, self.dropout, training=self.training)
         new_edge_embs = torch.sum(attention * Wh[edge_list-1], dim=1)
         # assert new_edge_embs.shape == edge_embs.shape
-        new_edge_embs = F.dropout(new_edge_embs, self.dropout, training=self.training)
 
         # node attention
         Wf = edge_embs.mm(self.W2)
@@ -44,9 +44,9 @@ class SparseHyperGraphAttentionLayer(nn.Module):
         node_4att1 = torch.where(node_list > 0, a2vs, zeros)
         node_4att2 = Wh.matmul(self.a2[self.out_features:, :])
         attention = F.softmax(node_4att1 + node_4att2, dim=1).unsqueeze(2)
+        attention = F.dropout(attention, self.dropout, training=self.training)
         new_node_embs = torch.sum(attention * Wf[node_list-1], dim=1)
         # assert new_node_embs.shape == node_embs.shape
-        new_node_embs = F.dropout(new_node_embs, self.dropout, training=self.training)
 
         if self.concat:
             return F.elu(new_node_embs), F.elu(new_edge_embs)

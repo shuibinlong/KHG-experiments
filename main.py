@@ -39,6 +39,7 @@ class Experiment:
             self.opt = torch.optim.Adagrad(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
         elif self.opt == "Adam":
             self.opt = torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+            self.scheduler = torch.optim.lr_scheduler.StepLR(self.opt, step_size=500, gamma=0.5)
         # TODO: model ckpt save & load
 
     def decompose_predictions(self, targets, predictions, max_length):
@@ -92,13 +93,15 @@ class Experiment:
                 batch_outputs = self.model(batch_data, self.dataset.edge_list, self.dataset.node_list)
                 self.opt.zero_grad()
                 loss = self.batch_loss(batch_outputs, batch_labels)
-                print('forward time={}'.format(time.time() - it_st))
+                it_md = time.time()
                 loss.backward()
                 self.opt.step()
                 it_ed = time.time()
-                print('Iteration #{}: loss={:.4f}, time={:.4f}'.format(it, loss.item(), it_ed - it_st))
+                print('Iteration #{}: loss={:.4f}, forward_time={:.4f}, backward_time={:.4f}'.format(it, loss.item(), it_md - it_st, it_ed - it_md))
                 epoch_loss.append(loss.item())
             
+            if self.scheduler:
+                self.scheduler.step()
             epoch_ed = time.time()
             print('Epoch #{}: avg_loss={}, epoch_time={}'.format(epoch, sum(epoch_loss) / len(epoch_loss), epoch_ed - epoch_st))
 
@@ -111,14 +114,14 @@ if __name__ == '__main__':
     parser.add_argument('-lr', type=float, default=1e-3)
     parser.add_argument('-nr', type=int, default=10)
     parser.add_argument('-alpha', type=float, default=0.2)
-    parser.add_argument('-dropout', type=float, default=0.0)
+    parser.add_argument('-dropout', type=float, default=0.3)
     parser.add_argument('-weight_decay', type=float, default=5e-6)
     parser.add_argument('-nheads', type=int, default=3)
     parser.add_argument('-emb_dim', type=int, default=100)
     parser.add_argument('-hidden_dim', type=int, default=200)
-    parser.add_argument('-batch_size', type=int, default=128)
+    parser.add_argument('-batch_size', type=int, default=4096)
     parser.add_argument('-epochs', type=int, default=1000)
-    parser.add_argument('-opt', type=str, default="Adagrad")
+    parser.add_argument('-opt', type=str, default="Adam")
     args = parser.parse_args()
 
     experiment = Experiment(args)
