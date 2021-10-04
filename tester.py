@@ -2,8 +2,8 @@ import torch
 from measure import Measure
 
 class Tester:
-    def __init__(self, model, dataset, valid_or_test):
-        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    def __init__(self, model, dataset, valid_or_test, device):
+        self.device = device
         self.model = model
         self.model.eval()
         self.dataset = dataset
