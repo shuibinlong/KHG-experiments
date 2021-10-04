@@ -10,6 +10,7 @@ class Dataset:
         self.max_arity = {'edge': 0, 'node': 0}
         self.entity2id, self.entity_cnt = {}, 0
         self.relation2id, self.relation_cnt = {}, 0
+        # TODO: maintain sparse adjacency list
         self.edge_list, self.node_list = {}, {}
         self.data = {}
         self.batch_index = 0
