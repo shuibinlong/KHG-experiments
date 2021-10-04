@@ -6,6 +6,7 @@ import numpy as np
 from torch.autograd import backward
 from models import *
 from dataset import Dataset
+from tester import Tester
 
 NODE_MAX_ARITY = 6
 
@@ -105,6 +106,14 @@ class Experiment:
             epoch_ed = time.time()
             print('Epoch #{}: avg_loss={}, epoch_time={}'.format(epoch, sum(epoch_loss) / len(epoch_loss), epoch_ed - epoch_st))
 
+            # Evaluate the model
+            if epoch % 10 == 0:
+                self.model.eval()
+                with torch.no_grad():
+                    print("validation:")
+                    tester = Tester(self.model, self.dataset, 'valid', self.device)
+                    measure_valid, _ = tester.test(False)
+                    mrr = measure_valid.mrr['fil']
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -120,7 +129,7 @@ if __name__ == '__main__':
     parser.add_argument('-emb_dim', type=int, default=100)
     parser.add_argument('-hidden_dim', type=int, default=200)
     parser.add_argument('-batch_size', type=int, default=4096)
-    parser.add_argument('-epochs', type=int, default=1000)
+    parser.add_argument('-epochs', type=int, default=100)
     parser.add_argument('-opt', type=str, default="Adam")
     args = parser.parse_args()
 
