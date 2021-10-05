@@ -1,10 +1,10 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from layers import SparseHyperGraphAttentionLayer
+from layers import SparseHyperGraphAttentionLayer, RankingLayer
 
 class HyperGAT(nn.Module):
-    def __init__(self, node_embs, edge_embs, max_arity, nfeat, nhid, nemb, alpha, dropout, nheads, device):
+    def __init__(self, node_embs, edge_embs, max_arity, data_arity, nfeat, nhid, nemb, alpha, dropout, nheads, device):
         super().__init__()
         self.emb_dim = nemb
         self.dropout = dropout
@@ -16,6 +16,7 @@ class HyperGAT(nn.Module):
         for i, attention in enumerate(self.attentions):
             self.add_module(f'attention_{i}', attention)
         self.out_attention = SparseHyperGraphAttentionLayer(nhid * nheads, nemb, max_arity, alpha, dropout, device, concat=False)
+        self.scoring = RankingLayer(data_arity, dropout)
 
     def forward(self, batch_inputs, edge_list, node_list):
         node_embs_list, edge_embs_list = [], []
@@ -34,4 +35,5 @@ class HyperGAT(nn.Module):
         batch_outputs = torch.ones(batch_inputs.shape).unsqueeze(2).repeat_interleave(self.emb_dim, 2).to(self.device)
         batch_outputs[:, 0, :] = out_edge_embs[batch_inputs[:, 0]-1, :]
         batch_outputs[:, 1:, :] = torch.where(batch_inputs.unsqueeze(2)[:, 1:, :] > 0, out_node_embs[batch_inputs[:, 1:]-1], batch_outputs[:, 1:, :])
-        return batch_outputs
+        batch_scores = self.scoring(batch_outputs)
+        return batch_scores

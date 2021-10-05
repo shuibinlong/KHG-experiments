@@ -33,7 +33,7 @@ class Experiment:
         self.load_model()
     
     def load_model(self):
-        self.model = HyperGAT(self.node_embs, self.edge_embs, self.dataset.max_arity, self.emb_dim, self.hidden_dim, self.emb_dim, self.alpha, self.dropout, self.nheads, self.device)
+        self.model = HyperGAT(self.node_embs, self.edge_embs, self.dataset.max_arity, self.dataset.data_arity, self.emb_dim, self.hidden_dim, self.emb_dim, self.alpha, self.dropout, self.nheads, self.device)
         if self.device != torch.device('cpu'):
             self.model.cuda()
         if self.opt == 'Adagrad':
@@ -61,15 +61,11 @@ class Experiment:
         seq = self.decompose_predictions(targets, predictions, max_length)
         return torch.stack(seq)
 
-    def batch_loss(self, batch_data, batch_labels):
+    def batch_loss(self, batch_scores, batch_labels):
         loss_layer = torch.nn.CrossEntropyLoss()
-        x = batch_data[:, 0, :]
-        for i in range(1, self.dataset.data_arity):
-            x = x * batch_data[:, i, :]
-        y = torch.sum(x, dim=1)
         # TODO: readout this part
         number_of_positive = len(np.where(batch_labels > 0)[0])
-        predictions = self.padd_and_decompose(batch_labels, y, self.neg_ratio*self.dataset.data_arity).to(self.device)
+        predictions = self.padd_and_decompose(batch_labels, batch_scores, self.neg_ratio*self.dataset.data_arity).to(self.device)
         targets = torch.zeros(number_of_positive).long().to(self.device)
         loss = loss_layer(predictions, targets)
         return loss
@@ -91,9 +87,9 @@ class Experiment:
             for it in range(num_iterations):
                 it_st = time.time()
                 batch_data, batch_labels = self.dataset.get_next_batch(self.batch_size, self.neg_ratio)
-                batch_outputs = self.model(batch_data, self.dataset.edge_list, self.dataset.node_list)
+                batch_scores = self.model(batch_data, self.dataset.edge_list, self.dataset.node_list)
                 self.opt.zero_grad()
-                loss = self.batch_loss(batch_outputs, batch_labels)
+                loss = self.batch_loss(batch_scores, batch_labels)
                 it_md = time.time()
                 loss.backward()
                 self.opt.step()
@@ -107,7 +103,7 @@ class Experiment:
             print('Epoch #{}: avg_loss={}, epoch_time={}'.format(epoch, sum(epoch_loss) / len(epoch_loss), epoch_ed - epoch_st))
 
             # Evaluate the model
-            if epoch % 10 == 0:
+            if epoch % 20 == 0:
                 self.model.eval()
                 with torch.no_grad():
                     print("validation:")

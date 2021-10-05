@@ -55,3 +55,17 @@ class SparseHyperGraphAttentionLayer(nn.Module):
     
     def __repr__(self):
         return self.__class__.__name__ + ' (' + str(self.in_features) + ' -> ' + str(self.out_features) + ')'
+
+class RankingLayer(nn.Module):
+    def __init__(self, data_arity, dropout):
+        super().__init__()
+        self.data_arity = data_arity
+        self.dropout = dropout
+    
+    def forward(self, x):
+        y = x[:, 0, :]
+        for i in range(1, self.data_arity):
+            y = y * x[:, i, :]
+        y = F.dropout(y, self.dropout, training=self.training)
+        y = torch.sum(y, dim=1)
+        return y
