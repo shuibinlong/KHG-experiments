@@ -26,7 +26,7 @@ class Experiment:
         self.dropout = args.dropout
         self.nheads = args.nheads
         self.dataset = Dataset(args.dataset, NODE_MAX_ARITY, self.device)
-        print('relation_num={}, entity_num={}\nmax_arity={}'.format(self.dataset.relation_cnt, self.dataset.entity_cnt, self.dataset.max_arity))
+        print('relation_num={}, entity_num={}, edge_num={}\nmax_arity={}'.format(self.dataset.relation_cnt, self.dataset.entity_cnt, self.dataset.edge_cnt, self.dataset.max_arity))
 
         self.node_embs = torch.FloatTensor(np.random.randn(self.dataset.entity_cnt, self.emb_dim)).to(self.device)
         self.edge_embs = torch.FloatTensor(np.random.randn(self.dataset.relation_cnt, self.emb_dim)).to(self.device)

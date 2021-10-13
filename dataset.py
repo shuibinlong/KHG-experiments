@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import scipy.sparse as sp
 import torch
 
 
@@ -9,7 +10,7 @@ class Dataset:
         self.device = device
         self.max_arity = {'edge': 0, 'node': 0}
         self.entity2id, self.entity_cnt = {}, 0
-        self.relation2id, self.relation_cnt = {}, 0
+        self.relation2id, self.relation_cnt, self.edge_cnt = {}, 0, 0
         # TODO: maintain sparse adjacency list
         self.edge_list, self.node_list = {}, {}
         self.data = {}
@@ -25,7 +26,7 @@ class Dataset:
                 test_arity = f'test_{i}'
                 self.data[test_arity] = self.read_test(os.path.join(dir, f'{test_arity}.txt'))
         self.data['valid'] = self.read_train(os.path.join(dir, 'valid.txt'))
-        self.process_list()
+        self.process_adj()
 
     def read_train(self, file_path):
         if not os.path.exists(file_path):
@@ -37,7 +38,7 @@ class Dataset:
         for i, line in enumerate(lines):
             record = line.strip().split('\t')
             data[i] = self.record2ids(record)
-            self.parse_adj(record)
+            self.parse_list(record)
         return data
 
     def read_test(self, file_path):
@@ -50,26 +51,27 @@ class Dataset:
         for i, line in enumerate(lines):
             record = line.strip().split('\t')
             data[i] = self.record2ids(record[1:])
-            self.parse_adj(record[1:])
+            self.parse_list(record[1:])
         return data
     
-    def process_list(self):
-        new_edge_list = torch.empty((self.relation_cnt, self.max_arity['node']), dtype=torch.long).to(self.device)
+    def process_adj(self):
+        self.tuples = torch.empty((self.edge_cnt, self.max_arity['node']), dtype=torch.long).to(self.device)
         for i in range(1, self.relation_cnt + 1):
             raw = np.array(list(self.edge_list[i]))
             fixed = np.zeros(self.max_arity['node'] - len(self.edge_list[i]))
-            new_edge_list[i-1] = torch.LongTensor(np.concatenate((raw, fixed)))
-            assert new_edge_list[i-1].shape[0] == self.max_arity['node']
-        new_node_list = torch.empty((self.entity_cnt, self.max_arity['edge']), dtype=torch.long).to(self.device)
-        for i in range(1, self.entity_cnt + 1):
-            raw = np.array(list(self.node_list[i]))
-            fixed = np.zeros(self.max_arity['edge'] - len(self.node_list[i]))
-            new_node_list[i-1] = torch.LongTensor(np.concatenate((raw, fixed)))
-            assert new_node_list[i-1].shape[0] == self.max_arity['edge']
-        self.edge_list, self.node_list = new_edge_list, new_node_list
+            self.tuples[i-1] = torch.LongTensor(np.concatenate((raw, fixed)))
+            assert self.tuples[i-1].shape[0] == self.max_arity['node']
+        data, row, col = [], [], []
+        for edge in range(1, self.edge_cnt + 1):
+            for node in self.edge_list[edge]:
+                data.append(1)
+                row.append(node-1)
+                col.append(edge-1)
+        self.H = sp.coo_matrix((data, (row, col)), shape=(self.entity_cnt, self.edge_cnt))
 
-    def parse_adj(self, record):
-        edge = self.get_relation_id(record[0])
+    def parse_list(self, record):
+        self.edge_cnt += 1
+        edge = self.edge_cnt
         for x in record[1:]:
             node = self.get_entity_id(x)
             self.insert_edge(edge, node)
