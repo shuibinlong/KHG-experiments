@@ -64,12 +64,14 @@ class Dataset:
             self.tuples[edge-1] = torch.LongTensor(np.concatenate((relation, raw, fixed)))
             assert self.tuples[edge-1].shape[0] == self.max_arity['node'] + 1
             for node in self.edge_list[edge]:
-                data.append(1)
                 row.append(node-1)
                 col.append(edge-1)
-        indices = torch.LongTensor(np.vstack((row, col)))
-        values = torch.LongTensor(data)
+                data.append(1)
+        indices = torch.LongTensor(np.vstack((row, col))).to(self.device)
+        values = torch.LongTensor(data).to(self.device)
         self.H = torch.sparse_coo_tensor(indices, values, size=[self.entity_cnt, self.edge_cnt])
+        self.node_indices = torch.LongTensor(row).to(self.device)
+        self.edge_indices = torch.LongTensor(col).to(self.device)
 
     def parse_list(self, record):
         self.edge_cnt += 1
