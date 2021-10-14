@@ -67,7 +67,9 @@ class Dataset:
                 data.append(1)
                 row.append(node-1)
                 col.append(edge-1)
-        self.H = sp.coo_matrix((data, (row, col)), shape=(self.entity_cnt, self.edge_cnt))
+        indices = torch.LongTensor(np.vstack((row, col)))
+        values = torch.LongTensor(data)
+        self.H = torch.sparse_coo_tensor(indices, values, size=[self.entity_cnt, self.edge_cnt])
 
     def parse_list(self, record):
         self.edge_cnt += 1
