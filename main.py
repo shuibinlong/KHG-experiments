@@ -28,12 +28,12 @@ class Experiment:
         self.dataset = Dataset(args.dataset, NODE_MAX_ARITY, self.device)
         print('relation_num={}, entity_num={}, edge_num={}\nmax_arity={}'.format(self.dataset.relation_cnt, self.dataset.entity_cnt, self.dataset.edge_cnt, self.dataset.max_arity))
 
-        self.node_embs = torch.FloatTensor(np.random.randn(self.dataset.entity_cnt, self.emb_dim)).to(self.device)
-        self.edge_embs = torch.FloatTensor(np.random.randn(self.dataset.relation_cnt, self.emb_dim)).to(self.device)
+        self.entity_embs = torch.FloatTensor(np.random.randn(self.dataset.entity_cnt, self.emb_dim)).to(self.device)
+        self.relation_embs = torch.FloatTensor(np.random.randn(self.dataset.relation_cnt, self.emb_dim)).to(self.device)
         self.load_model()
     
     def load_model(self):
-        self.model = HyperGAT(self.node_embs, self.edge_embs, self.dataset.max_arity, self.dataset.data_arity, self.emb_dim, self.hidden_dim, self.emb_dim, self.alpha, self.dropout, self.nheads, self.device)
+        self.model = HyperGAT(self.entity_embs, self.relation_embs, self.dataset.max_arity, self.dataset.data_arity, self.emb_dim, self.hidden_dim, self.emb_dim, self.alpha, self.dropout, self.nheads, self.device)
         if self.device != torch.device('cpu'):
             self.model.cuda()
         if self.opt == 'Adagrad':
@@ -87,7 +87,7 @@ class Experiment:
             for it in range(num_iterations):
                 it_st = time.time()
                 batch_data, batch_labels = self.dataset.get_next_batch(self.batch_size, self.neg_ratio)
-                batch_scores = self.model(batch_data, self.dataset.edge_list, self.dataset.node_list)
+                batch_scores = self.model(batch_data, self.dataset.tuples, self.dataset.H, self.dataset.node_indices, self.dataset.edge_indices)
                 self.opt.zero_grad()
                 loss = self.batch_loss(batch_scores, batch_labels)
                 it_md = time.time()
