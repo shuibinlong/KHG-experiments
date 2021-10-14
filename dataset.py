@@ -11,7 +11,7 @@ class Dataset:
         self.max_arity = {'edge': 0, 'node': 0}
         self.entity2id, self.entity_cnt = {}, 0
         self.relation2id, self.relation_cnt, self.edge_cnt = {}, 0, 0
-        # TODO: maintain sparse adjacency list
+        self.edge2relation = {}
         self.edge_list, self.node_list = {}, {}
         self.data = {}
         self.batch_index = 0
@@ -55,14 +55,14 @@ class Dataset:
         return data
     
     def process_adj(self):
-        self.tuples = torch.empty((self.edge_cnt, self.max_arity['node']), dtype=torch.long).to(self.device)
-        for i in range(1, self.relation_cnt + 1):
-            raw = np.array(list(self.edge_list[i]))
-            fixed = np.zeros(self.max_arity['node'] - len(self.edge_list[i]))
-            self.tuples[i-1] = torch.LongTensor(np.concatenate((raw, fixed)))
-            assert self.tuples[i-1].shape[0] == self.max_arity['node']
+        self.tuples = torch.empty((self.edge_cnt, self.max_arity['node'] + 1), dtype=torch.long).to(self.device)
         data, row, col = [], [], []
         for edge in range(1, self.edge_cnt + 1):
+            relation = np.array([self.edge2relation[edge]])
+            raw = np.array(list(self.edge_list[edge]))
+            fixed = np.zeros(self.max_arity['node'] - len(self.edge_list[edge]))
+            self.tuples[edge-1] = torch.LongTensor(np.concatenate((relation, raw, fixed)))
+            assert self.tuples[edge-1].shape[0] == self.max_arity['node'] + 1
             for node in self.edge_list[edge]:
                 data.append(1)
                 row.append(node-1)
@@ -72,6 +72,7 @@ class Dataset:
     def parse_list(self, record):
         self.edge_cnt += 1
         edge = self.edge_cnt
+        self.edge2relation[edge] = self.get_relation_id(record[0])
         for x in record[1:]:
             node = self.get_entity_id(x)
             self.insert_edge(edge, node)
