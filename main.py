@@ -26,7 +26,7 @@ class Experiment:
         self.dropout = args.dropout
         self.nheads = args.nheads
         self.dataset = Dataset(args.dataset, NODE_MAX_ARITY, self.device)
-        print('relation_num={}, entity_num={}, edge_num={}\nmax_arity={}'.format(self.dataset.relation_cnt, self.dataset.entity_cnt, self.dataset.edge_cnt, self.dataset.max_arity))
+        print('relation_num={}, entity_num={}, edge_num={}\nmax_arity={}, data_arity={}'.format(self.dataset.relation_cnt, self.dataset.entity_cnt, self.dataset.edge_cnt, self.dataset.max_arity, self.dataset.data_arity))
 
         self.entity_embs = torch.FloatTensor(np.random.randn(self.dataset.entity_cnt, self.emb_dim)).to(self.device)
         self.relation_embs = torch.FloatTensor(np.random.randn(self.dataset.relation_cnt, self.emb_dim)).to(self.device)
@@ -75,7 +75,7 @@ class Experiment:
         print('Number of training data points: {}'.format(len(self.dataset.data['train'])))
 
         print('Starting training at iteration ...')
-        for epoch in range(self.epochs):
+        for epoch in range(1, self.epochs + 1):
             self.model.train()
             epoch_st = time.time()
             epoch_loss = []
