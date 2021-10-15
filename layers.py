@@ -64,7 +64,7 @@ class RankingLayer(nn.Module):
     
     def forward(self, x):
         y = x[:, 0, :]
-        for i in range(1, self.data_arity):
+        for i in range(1, self.data_arity + 1):
             y = y * x[:, i, :]
         y = F.dropout(y, self.dropout, training=self.training)
         y = torch.sum(y, dim=1)
