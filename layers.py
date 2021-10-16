@@ -42,9 +42,9 @@ class SparseHyperGraphAttentionLayer(nn.Module):
         self.concat = concat
         self.special_spmm = SpecialSpmm()
 
-        self.W1 = nn.Parameter(torch.empty(size=(in_features, out_features)))
+        self.W1 = nn.Parameter(torch.empty(size=(in_features+rel_features, out_features)))
         nn.init.xavier_uniform_(self.W1.data, gain=1.414)
-        self.W2 = nn.Parameter(torch.empty(size=(rel_features, out_features)))
+        self.W2 = nn.Parameter(torch.empty(size=(2*out_features, out_features)))
         nn.init.xavier_uniform_(self.W2.data, gain=1.414)
         self.a1 = nn.Parameter(torch.empty(size=(2*out_features, 1)))
         nn.init.xavier_uniform_(self.a1.data, gain=1.414)
@@ -54,16 +54,17 @@ class SparseHyperGraphAttentionLayer(nn.Module):
     def forward(self, entity_embs, relation_embs, tuples, H, node_indices, edge_indices):
         N, M = H.shape[0], H.shape[1]
 
-        entity_w = entity_embs.mm(self.W1)
-        relation_w = relation_embs.mm(self.W2)
-
+        entity_w = entity_embs.mm(self.W1[:self.in_features])
+        relation_w = relation_embs.mm(self.W1[self.in_features:])
+        node_w = torch.cat((entity_w[tuples[:, 1:]-1, :], relation_w[tuples[:, 0]-1].unsqueeze(1).repeat_interleave(self.max_arity['node'], 1)), dim=2)
+        
         zeros = -9e15*torch.ones((tuples.shape[0], tuples.shape[1]-1)).to(self.device)
-        a1us = entity_w[tuples[:, 1:]-1, :].matmul(self.a1[:self.out_features]).squeeze()
-        edge_4att1 = torch.where(tuples[:, 1:] > 0, a1us, zeros)
-        edge_4att2 = relation_w[tuples[:, 0]-1].matmul(self.a1[self.out_features:])
-        attention = F.softmax(self.leakyrelu(edge_4att1 + edge_4att2), dim=1).unsqueeze(2)
+        a1us = node_w.matmul(self.a1).squeeze()
+        edge_4att = self.leakyrelu(torch.where(tuples[:, 1:] > 0, a1us, zeros))
+        attention = F.softmax(edge_4att, dim=1).unsqueeze(2)
         attention = F.dropout(attention, self.dropout, training=self.training)
-        edge_embs = F.elu(torch.sum(attention * entity_w[tuples[:, 1:]-1, :], dim=1))
+        edge_embs = F.elu(torch.sum(attention * node_w, dim=1))
+        edge_embs = edge_embs.mm(self.W2)
 
         indices = H._indices()
         edge_h = torch.cat((edge_embs[edge_indices, :], entity_w[node_indices, :]), dim=1)
