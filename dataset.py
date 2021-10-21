@@ -1,146 +1,143 @@
 import os
 import numpy as np
-import scipy.sparse as sp
+import random
 import torch
-
+import math
 
 class Dataset:
-    def __init__(self, ds_name, data_arity, device):
-        self.data_arity = data_arity
-        self.device = device
-        self.max_arity = {'edge': 0, 'node': 0}
-        self.entity2id, self.entity_cnt = {}, 0
-        self.relation2id, self.relation_cnt, self.edge_cnt = {}, 0, 0
-        self.edge2relation = {}
-        self.edge_list, self.node_list = {}, {}
+    def __init__(self, ds_name, max_arity=6):
+        self.name = ds_name
+        self.dir = os.path.join("data", ds_name)
+        # THIS NEEDS TO STAY 6
+        self.max_arity = max_arity
+        # id zero means no entity. Entity ids start from 1.
+        self.ent2id = {"":0}
+        self.rel2id = {"":0}
         self.data = {}
+        print("Loading the dataset {} ....".format(ds_name))
+        self.data["train"] = self.read(os.path.join(self.dir, "train.txt"))
+        # Shuffle the train set
+        np.random.shuffle(self.data['train'])
+
+        # Load the test data
+        self.data["test"] = self.read_test(os.path.join(self.dir, "test.txt"))
+        # Read the test files by arity, if they exist
+        # If they do, then test output will be displayed by arity
+        for i in range(2,self.max_arity+1):
+            test_arity = "test_{}".format(i)
+            file_path = os.path.join(self.dir, "test_{}.txt".format(i))
+            self.data[test_arity] = self.read_test(file_path)
+
+        self.data["valid"] = self.read(os.path.join(self.dir, "valid.txt"))
         self.batch_index = 0
 
-        print(f'Loading the dataset {ds_name} ...')
-        dir = os.path.join('data', ds_name)
-        self.data['train'] = self.read_train(os.path.join(dir, 'train.txt'))
-        np.random.shuffle(self.data['train'])
-        self.data['test'] = self.read_test(os.path.join(dir, 'test.txt'))
-        if ds_name == 'JF17K':
-            for i in range(2, self.data_arity):
-                test_arity = f'test_{i}'
-                self.data[test_arity] = self.read_test(os.path.join(dir, f'{test_arity}.txt'))
-        self.data['valid'] = self.read_train(os.path.join(dir, 'valid.txt'))
-        self.process_adj()
-
-    def read_train(self, file_path):
+    def read(self, file_path):
         if not os.path.exists(file_path):
-            print(f'[ERROR] {file_path} not found, skipping')
-            return {}
-        with open(file_path, 'r') as f:
+            print("*** {} not found. Skipping. ***".format(file_path))
+            return ()
+        with open(file_path, "r") as f:
             lines = f.readlines()
-        data = np.zeros((len(lines), self.data_arity + 1))
+        tuples = np.zeros((len(lines), self.max_arity + 1))
         for i, line in enumerate(lines):
-            record = line.strip().split('\t')
-            data[i] = self.record2ids(record)
-            self.parse_list(record)
-        return data
+            tuples[i] = self.tuple2ids(line.strip().split("\t"))
+        return tuples
 
     def read_test(self, file_path):
         if not os.path.exists(file_path):
-            print(f'[ERROR] {file_path} not found, skipping')
-            return {}
-        with open(file_path, 'r') as f:
+            print("*** {} not found. Skipping. ***".format(file_path))
+            return ()
+        with open(file_path, "r") as f:
             lines = f.readlines()
-        data = np.zeros((len(lines), self.data_arity + 1))
+        tuples = np.zeros((len(lines),  self.max_arity + 1))
         for i, line in enumerate(lines):
-            record = line.strip().split('\t')
-            data[i] = self.record2ids(record[1:])
-            self.parse_list(record[1:])
-        return data
-    
-    def process_adj(self):
-        self.tuples = torch.empty((self.edge_cnt, self.max_arity['node'] + 1), dtype=torch.long).to(self.device)
-        data, row, col = [], [], []
-        for edge in range(1, self.edge_cnt + 1):
-            relation = np.array([self.edge2relation[edge]])
-            raw = np.array(list(self.edge_list[edge]))
-            fixed = np.zeros(self.max_arity['node'] - len(self.edge_list[edge]))
-            self.tuples[edge-1] = torch.LongTensor(np.concatenate((relation, raw, fixed)))
-            assert self.tuples[edge-1].shape[0] == self.max_arity['node'] + 1
-            for node in self.edge_list[edge]:
-                row.append(node-1)
-                col.append(edge-1)
-                data.append(1)
-        indices = torch.LongTensor(np.vstack((row, col))).to(self.device)
-        values = torch.LongTensor(data).to(self.device)
-        self.H = torch.sparse_coo_tensor(indices, values, size=[self.entity_cnt, self.edge_cnt])
-        self.node_indices = torch.LongTensor(row).to(self.device)
-        self.edge_indices = torch.LongTensor(col).to(self.device)
+            splitted = line.strip().split("\t")[1:]
+            tuples[i] = self.tuple2ids(splitted)
+        return tuples
 
-    def parse_list(self, record):
-        self.edge_cnt += 1
-        edge = self.edge_cnt
-        self.edge2relation[edge] = self.get_relation_id(record[0])
-        for x in record[1:]:
-            node = self.get_entity_id(x)
-            self.insert_edge(edge, node)
-            self.insert_node(node, edge)  
+    def num_ent(self):
+        return len(self.ent2id)
 
-    def insert_edge(self, edge, node):
-        if edge not in self.edge_list:
-            self.edge_list[edge] = set()
-        self.edge_list[edge].add(node)
-        self.max_arity['node'] = max(self.max_arity['node'], len(self.edge_list[edge]))
-    
-    def insert_node(self, node, edge):
-        if node not in self.node_list:
-            self.node_list[node] = set()
-        self.node_list[node].add(edge)
-        self.max_arity['edge'] = max(self.max_arity['edge'], len(self.node_list[node]))
+    def num_rel(self):
+        return len(self.rel2id)
 
-    def record2ids(self, record):
-        res = np.zeros(self.data_arity + 1)
-        for i, x in enumerate(record):
-            res[i] = self.get_relation_id(x) if i == 0 else self.get_entity_id(x)
-        return res
+    def tuple2ids(self, tuple_):
+        output = np.zeros(self.max_arity + 1)
+        for ind,t in enumerate(tuple_):
+            if ind == 0:
+                output[ind] = self.get_rel_id(t)
+            else:
+                output[ind] = self.get_ent_id(t)
+        return output
 
-    def get_relation_id(self, x):
-        if x not in self.relation2id:
-            self.relation_cnt += 1
-            self.relation2id[x] = self.relation_cnt
-        return self.relation2id[x]
+    def get_ent_id(self, ent):
+        if not ent in self.ent2id:
+            self.ent2id[ent] = len(self.ent2id)
+        return self.ent2id[ent]
 
-    def get_entity_id(self, x):
-        if x not in self.entity2id:
-            self.entity_cnt += 1
-            self.entity2id[x] = self.entity_cnt
-        return self.entity2id[x]
+    def get_rel_id(self, rel):
+        if not rel in self.rel2id:
+            self.rel2id[rel] = len(self.rel2id)
+        return self.rel2id[rel]
 
-    def get_next_batch(self, batch_size, neg_ratio):
-        pos_batch = self.get_pos_batch(batch_size)
-        batch = self.gen_neg_batch(pos_batch, neg_ratio)
-        batch_edges = torch.Tensor(batch[:, :-2]).long().to(self.device)
-        batch_labels = torch.Tensor(batch[:, -2]).long()
-        return batch_edges, batch_labels
+    def rand_ent_except(self, ent):
+        # id 0 is reserved for nothing. randint should return something between zero to len of entities
+        rand_ent = random.randint(1, self.num_ent() - 1)
+        while(rand_ent == ent):
+            rand_ent = random.randint(1, self.num_ent() - 1)
+        return rand_ent
 
-    def get_pos_batch(self, batch_size):
-        if self.batch_index + batch_size < len(self.data['train']):
-            batch = self.data['train'][self.batch_index: self.batch_index + batch_size]
+    def next_pos_batch(self, batch_size):
+        if self.batch_index + batch_size < len(self.data["train"]):
+            batch = self.data["train"][self.batch_index: self.batch_index+batch_size]
             self.batch_index += batch_size
         else:
-            batch = self.data['train'][self.batch_index:]
+            batch = self.data["train"][self.batch_index:]
+            ###shuffle##
             np.random.shuffle(self.data['train'])
             self.batch_index = 0
-        batch = np.append(batch, np.zeros((len(batch), 1)), axis=1).astype('int')  # label
-        batch = np.append(batch, np.zeros((len(batch), 1)), axis=1).astype('int')  # arity
+        batch = np.append(batch, np.zeros((len(batch), 1)), axis=1).astype("int") #appending the +1 label
+        batch = np.append(batch, np.zeros((len(batch), 1)), axis=1).astype("int") #appending the 0 arity
         return batch
 
-    def gen_neg_batch(self, pos_batch, neg_ratio):
-        arities = [(x != 0).sum() for x in pos_batch]
-        pos_batch[:, -1] = arities
-        neg_batch = np.concatenate(
-            [self.gen_neg(np.repeat([x], neg_ratio * arities[i] + 1, axis=0), arities[i], neg_ratio) for i, x in
-             enumerate(pos_batch)], axis=0)
+    def next_batch(self, batch_size, neg_ratio, device):
+
+        pos_batch = self.next_pos_batch(batch_size)
+        batch = self.generate_neg(pos_batch, neg_ratio)
+
+        arities = batch[:,8]
+        ms = np.zeros((len(batch),6))
+        bs = np.ones((len(batch), 6))
+        for i in range(len(batch)):
+            ms[i][0:arities[i]] = 1
+            bs[i][0:arities[i]] = 0
+        r  = torch.tensor(batch[:,0]).long().to(device)
+        e1 = torch.tensor(batch[:,1]).long().to(device)
+        e2 = torch.tensor(batch[:,2]).long().to(device)
+        e3 = torch.tensor(batch[:,3]).long().to(device)
+        e4 = torch.tensor(batch[:,4]).long().to(device)
+        e5 = torch.tensor(batch[:,5]).long().to(device)
+        e6 = torch.tensor(batch[:,6]).long().to(device)
+        labels = batch[:, 7]
+        ms = torch.tensor(ms).float().to(device)
+        bs = torch.tensor(bs).float().to(device)
+        return r, e1, e2, e3, e4, e5, e6, labels, ms, bs
+
+
+    def generate_neg(self, pos_batch, neg_ratio):
+        arities = [8 - (t == 0).sum() for t in pos_batch]
+        pos_batch[:,-1] = arities
+        neg_batch = np.concatenate([self.neg_each(np.repeat([c], neg_ratio * arities[i] + 1, axis=0), arities[i], neg_ratio) for i, c in enumerate(pos_batch)], axis=0)
         return neg_batch
 
-    def gen_neg(self, neg, arity, batch):
-        neg[0, -2] = 1
-        for i in range(arity):
-            neg[i * batch + 1: (i + 1) * batch + 1, i + 1] = np.random.randint(1, self.entity_cnt + 1, size=batch)
-        return neg
+    def neg_each(self, arr, arity, nr):
+        arr[0,-2] = 1
+        for a in range(arity):
+            arr[a* nr + 1:(a + 1) * nr + 1, a + 1] = np.random.randint(low=1, high=self.num_ent(), size=nr)
+        return arr
+
+    def was_last_batch(self):
+        return (self.batch_index == 0)
+
+    def num_batch(self, batch_size):
+        return int(math.ceil(float(len(self.data["train"])) / batch_size))
+
