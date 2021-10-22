@@ -2,6 +2,7 @@ import os
 import glob
 import re
 import json
+import time
 import datetime
 import numpy as np
 import torch
@@ -202,6 +203,7 @@ class Experiment:
             self.model.train()
             self.model.cur_itr.data += 1
             losses = 0
+            st = time.time()
             while not last_batch:
                 r, e1, e2, e3, e4, e5, e6, targets, ms, bs = self.dataset.next_batch(self.batch_size, neg_ratio=self.neg_ratio, device=self.device)
                 last_batch = self.dataset.was_last_batch()
@@ -220,10 +222,9 @@ class Experiment:
                 loss = loss_layer(predictions, targets)
                 loss.backward()
                 self.opt.step()
-                # print(f'tuple loss={loss.item()}')
                 losses += loss.item()
 
-            print("Iteration#: {}, loss: {}".format(it, losses))
+            print("Iteration #{}: loss={}, cost={}s".format(it, losses, time.time() - st))
 
             # Evaluate the model every 100th iteration or if it is the last iteration
             if (it % 100 == 0) or (it == self.num_iterations):
