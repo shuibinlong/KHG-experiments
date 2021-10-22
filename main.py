@@ -28,8 +28,7 @@ class Experiment:
         self.output_dir = args.output_dir
         self.restartable = args.restartable
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-        self.kwargs = {"in_channels":args.in_channels,"out_channels":args.out_channels, "filt_h":args.filt_h, "filt_w":args.filt_w,
-                       "hidden_drop":args.hidden_drop, "stride":args.stride, "input_drop":args.input_drop}
+        self.kwargs = {'ent_emb_dim': args.emb_dim, 'rel_emb_dim': args.rel_emb_dim, 'stride': args.stride, 'conv_kernel_size': args.conv_kernel_size, 'ent_emb_h': args.ent_emb_h, 'ent_emb_w': args.ent_emb_w, 'input_drop': args.input_drop, 'hidden_drop': args.hidden_drop, 'feature_map_dropout': args.feature_map_dropout, "in_channels":args.in_channels,"out_channels":args.out_channels, "filt_h":args.filt_h, "filt_w":args.filt_w,}
         self.hyperpars = {"model":args.model,"lr":args.lr,"emb_dim":args.emb_dim,"out_channels":args.out_channels,
                           "filt_w":args.filt_w,"nr":args.nr,"stride":args.stride, "hidden_drop":args.hidden_drop, "input_drop":args.input_drop}
 
@@ -71,16 +70,18 @@ class Experiment:
         Instantiate a model object given the model name
         """
         model = None
-        if(model_name == "MDistMult"):
+        if model_name == "MDistMult":
             model = MDistMult(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
-        elif(model_name == "MCP"):
+        elif model_name == "MCP":
             model = MCP(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
-        elif(model_name == "HSimplE"):
+        elif model_name == "HSimplE":
             model = HSimplE(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
-        elif(model_name == "HypE"):
+        elif model_name == "HypE":
             model = HypE(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
-        elif(model_name == "MTransH"):
-            model = MTransH(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
+        elif model_name == "MTransH":
+            model = MTransH(self.dataset, **self.kwargs).to(self.device)
+        elif model_name == 'HyperConvR':
+            model = HyperConvR(self.dataset, self.device, **self.kwargs).to(self.device)
         else:
             raise Exception("!!!! No mode called {} found !!!!".format(self.model_name))
         return model
@@ -201,10 +202,12 @@ class Experiment:
                 last_batch = self.dataset.was_last_batch()
                 self.opt.zero_grad()
                 number_of_positive = len(np.where(targets > 0)[0])
-                if(self.model_name == "HypE"):
+                if self.model_name == "HypE":
                     predictions = self.model.forward(r, e1, e2, e3, e4, e5, e6, ms, bs)
-                elif(self.model_name == "MTransH"):
+                elif self.model_name == "MTransH":
                     predictions = self.model.forward(r, e1, e2, e3, e4, e5, e6, ms)
+                elif self.model_name == 'HyperConvR':
+                    predictions = self.model.forward(r, e1, e2, e3, e4, e5, e6, ms, bs)
                 else:
                     predictions = self.model.forward(r, e1, e2, e3, e4, e5, e6)
                 predictions = self.padd_and_decompose(targets, predictions, self.neg_ratio*self.max_arity)
@@ -212,6 +215,7 @@ class Experiment:
                 loss = loss_layer(predictions, targets)
                 loss.backward()
                 self.opt.step()
+                # print(f'tuple loss={loss.item()}')
                 losses += loss.item()
 
             print("Iteration#: {}, loss: {}".format(it, losses))
@@ -317,16 +321,23 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-model', type=str, default="HSimplE")
     parser.add_argument('-dataset', type=str, default="JF17K")
-    parser.add_argument('-lr', type=float, default=0.01)
+    parser.add_argument('-lr', type=float, default=0.003)
     parser.add_argument('-nr', type=int, default=10)
     parser.add_argument('-out_channels', type=int, default=6)
     parser.add_argument('-in_channels', type=int, default=1)
     parser.add_argument('-filt_w', type=int, default=1)
     parser.add_argument('-filt_h', type=int, default=1)
     parser.add_argument('-emb_dim', type=int, default=200)
-    parser.add_argument('-hidden_drop', type=float, default=0.2)
+    parser.add_argument('-hidden_drop', type=float, default=0.3)
     parser.add_argument('-input_drop', type=float, default=0.2)
-    parser.add_argument('-stride', type=int, default=2)
+    parser.add_argument('-stride', type=int, default=1)
+    parser.add_argument('-ent_emb_dim', type=int, default=200)
+    parser.add_argument('-rel_emb_dim', type=int, default=200)
+    parser.add_argument('-ent_emb_h', type=int, default=10)
+    parser.add_argument('-ent_emb_w', type=int, default=20)
+    parser.add_argument('-conv_kernel_size', type=int, default=2)
+    parser.add_argument('-conv_use_bias', type=bool, default=True)
+    parser.add_argument('-feature_map_dropout', type=float, default=0.2)
     parser.add_argument('-num_iterations', type=int, default=1000)
     parser.add_argument('-batch_size', type=int, default=128)
     parser.add_argument("-test", action="store_true", help="If -test is set, then you must specify a -pretrained model. "
