@@ -27,6 +27,8 @@ class Experiment:
         self.test = args.test
         self.output_dir = args.output_dir
         self.restartable = args.restartable
+        self.opt = args.opt
+        self.reg = args.reg
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.kwargs = {'ent_emb_dim': args.emb_dim, 'rel_emb_dim': args.rel_emb_dim, 'stride': args.stride, 'conv_kernel_size': args.conv_kernel_size, 'ent_emb_h': args.ent_emb_h, 'ent_emb_w': args.ent_emb_w, 'input_drop': args.input_drop, 'hidden_drop': args.hidden_drop, 'feature_map_dropout': args.feature_map_dropout, "in_channels":args.in_channels,"out_channels":args.out_channels, "filt_h":args.filt_h, "filt_w":args.filt_w,}
         self.hyperpars = {"model":args.model,"lr":args.lr,"emb_dim":args.emb_dim,"out_channels":args.out_channels,
@@ -145,7 +147,10 @@ class Experiment:
         self.model = self.get_model_from_name(self.model_name)
 
         # Load the pretrained model
-        self.opt = torch.optim.Adagrad(self.model.parameters(), lr=self.learning_rate)
+        if self.opt == "Adagrad":
+            self.opt = torch.optim.Adagrad(self.model.parameters(), lr=self.learning_rate, weight_decay=self.reg)
+        elif self.opt == "Adam":
+            self.opt = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate, weight_decay=self.reg)
 
         if self.pretrained is not None:
             print("Loading the pretrained model at {} for testing".format(self.pretrained))
@@ -321,7 +326,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-model', type=str, default="HSimplE")
     parser.add_argument('-dataset', type=str, default="JF17K")
-    parser.add_argument('-lr', type=float, default=0.003)
+    parser.add_argument('-lr', type=float, default=0.005)
+    parser.add_argument('-opt', type=str, default="Adam")
+    parser.add_argument('-reg', type=float, default=0.0)
     parser.add_argument('-nr', type=int, default=10)
     parser.add_argument('-out_channels', type=int, default=6)
     parser.add_argument('-in_channels', type=int, default=1)
@@ -332,10 +339,10 @@ if __name__ == '__main__':
     parser.add_argument('-input_drop', type=float, default=0.2)
     parser.add_argument('-stride', type=int, default=1)
     parser.add_argument('-ent_emb_dim', type=int, default=200)
-    parser.add_argument('-rel_emb_dim', type=int, default=200)
+    parser.add_argument('-rel_emb_dim', type=int, default=900)
     parser.add_argument('-ent_emb_h', type=int, default=10)
     parser.add_argument('-ent_emb_w', type=int, default=20)
-    parser.add_argument('-conv_kernel_size', type=int, default=2)
+    parser.add_argument('-conv_kernel_size', type=int, default=3)
     parser.add_argument('-conv_use_bias', type=bool, default=True)
     parser.add_argument('-feature_map_dropout', type=float, default=0.2)
     parser.add_argument('-num_iterations', type=int, default=1000)
