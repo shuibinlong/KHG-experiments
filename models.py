@@ -284,9 +284,10 @@ class HyperConvR(BaseClass):
         self.max_arity = 6
         self.E = torch.nn.Embedding(dataset.num_ent(), self.emb_dim['entity'], padding_idx=0)
         self.R = torch.nn.Embedding(dataset.num_rel(), self.emb_dim['relation'], padding_idx=0)
-        self.bn0 = torch.nn.BatchNorm2d(1)  # batch normalization over a 4D input
+        self.bn0 = torch.nn.BatchNorm2d(1)
         self.bn1 = torch.nn.BatchNorm2d(self.conv_out_channels)
         self.bn2 = torch.nn.BatchNorm1d(self.emb_dim['entity'])
+        self.bn3 = torch.nn.BatchNorm1d(self.emb_dim['relation'])
         self.filter_h = (self.emb_dim['ent_emb_h'] - self.kernel_size) // self.stride + 1
         self.filter_w = (self.emb_dim['ent_emb_w'] - self.kernel_size) // self.stride + 1
         fc_length = self.conv_out_channels * self.filter_h * self.filter_w
@@ -301,6 +302,7 @@ class HyperConvR(BaseClass):
     def convolve(self, e_idx, kernel):
         e = self.E(e_idx)
         batch_size = e.shape[0]
+        e = self.bn2(e)
         e = e.view(1, -1, self.emb_dim['ent_emb_h'], self.emb_dim['ent_emb_w'])
         e = self.input_drop(e)
         x = F.conv2d(e, kernel, stride=self.stride, groups=batch_size)
@@ -317,6 +319,7 @@ class HyperConvR(BaseClass):
     
     def forward(self, r_idx, e1_idx, e2_idx, e3_idx, e4_idx, e5_idx, e6_idx, ms, bs):
         r = self.R(r_idx)
+        r = self.bn3(r)
         kernel = r.view(-1, 1, self.kernel_size, self.kernel_size)
         e1 = self.convolve(e1_idx, kernel) * ms[:,0].view(-1, 1) + bs[:,0].view(-1, 1)
         e2 = self.convolve(e2_idx, kernel) * ms[:,0].view(-1, 1) + bs[:,0].view(-1, 1)
