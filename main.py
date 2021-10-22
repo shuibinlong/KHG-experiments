@@ -224,7 +224,7 @@ class Experiment:
                 self.opt.step()
                 losses += loss.item()
 
-            print("Iteration #{}: loss={}, cost={}s".format(it, losses, time.time() - st))
+            print("Iteration #{}: loss={}, time={}".format(it, losses, time.time() - st))
 
             # Evaluate the model every 100th iteration or if it is the last iteration
             if (it % 100 == 0) or (it == self.num_iterations):
@@ -340,10 +340,10 @@ if __name__ == '__main__':
     parser.add_argument('-input_drop', type=float, default=0.2)
     parser.add_argument('-stride', type=int, default=1)
     parser.add_argument('-ent_emb_dim', type=int, default=200)
-    parser.add_argument('-rel_emb_dim', type=int, default=900)
+    parser.add_argument('-rel_emb_dim', type=int, default=400)
     parser.add_argument('-ent_emb_h', type=int, default=10)
     parser.add_argument('-ent_emb_w', type=int, default=20)
-    parser.add_argument('-conv_kernel_size', type=int, default=3)
+    parser.add_argument('-conv_kernel_size', type=int, default=2)
     parser.add_argument('-conv_use_bias', type=bool, default=True)
     parser.add_argument('-feature_map_dropout', type=float, default=0.2)
     parser.add_argument('-num_iterations', type=int, default=1000)
