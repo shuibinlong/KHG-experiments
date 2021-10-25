@@ -123,7 +123,7 @@ class Tester:
                 queries = self.create_queries(fact, j)
                 for raw_or_fil in settings:
                     r, e1, e2, e3, e4, e5, e6 = self.add_fact_and_shred(fact, queries, raw_or_fil)
-                    if (self.model_name == "HypE"):
+                    if (self.model_name == "HypE" or self.model_name == "HyperConvR"):
                         ms = np.zeros((len(r),6))
                         bs = np.ones((len(r), 6))
 

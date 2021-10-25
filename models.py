@@ -314,19 +314,20 @@ class HyperConvR(BaseClass):
         x = self.fc(x) # (batch_size, ent_emb_dim)
         x = self.hidden_drop(x)
         x = self.bn2(x)
-        x = F.relu(x)
+        x = F.elu(x)
         return x
     
     def forward(self, r_idx, e1_idx, e2_idx, e3_idx, e4_idx, e5_idx, e6_idx, ms, bs):
         r = self.R(r_idx)
         r = self.bn3(r)
         kernel = r.view(-1, 1, self.kernel_size, self.kernel_size)
+        r = self.input_drop(r)
         e1 = self.convolve(e1_idx, kernel) * ms[:,0].view(-1, 1) + bs[:,0].view(-1, 1)
-        e2 = self.convolve(e2_idx, kernel) * ms[:,0].view(-1, 1) + bs[:,0].view(-1, 1)
-        e3 = self.convolve(e3_idx, kernel) * ms[:,0].view(-1, 1) + bs[:,0].view(-1, 1)
-        e4 = self.convolve(e4_idx, kernel) * ms[:,0].view(-1, 1) + bs[:,0].view(-1, 1)
-        e5 = self.convolve(e5_idx, kernel) * ms[:,0].view(-1, 1) + bs[:,0].view(-1, 1)
-        e6 = self.convolve(e6_idx, kernel) * ms[:,0].view(-1, 1) + bs[:,0].view(-1, 1)
+        e2 = self.convolve(e2_idx, kernel) * ms[:,1].view(-1, 1) + bs[:,1].view(-1, 1)
+        e3 = self.convolve(e3_idx, kernel) * ms[:,2].view(-1, 1) + bs[:,2].view(-1, 1)
+        e4 = self.convolve(e4_idx, kernel) * ms[:,3].view(-1, 1) + bs[:,3].view(-1, 1)
+        e5 = self.convolve(e5_idx, kernel) * ms[:,4].view(-1, 1) + bs[:,4].view(-1, 1)
+        e6 = self.convolve(e6_idx, kernel) * ms[:,5].view(-1, 1) + bs[:,5].view(-1, 1)
 
         y = e1 * e2 * e3 * e4 * e5 * e6
         y = self.hidden_drop(y)
