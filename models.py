@@ -314,7 +314,7 @@ class HyperConvR(BaseClass):
         x = self.fc(x) # (batch_size, ent_emb_dim)
         x = self.hidden_drop(x)
         x = self.bn2(x)
-        x = F.elu(x)
+        x = F.relu(x)
         return x
     
     def forward(self, r_idx, e1_idx, e2_idx, e3_idx, e4_idx, e5_idx, e6_idx, ms, bs):
@@ -334,3 +334,44 @@ class HyperConvR(BaseClass):
         y = torch.sum(y, dim=1)
         return y
 
+class HyperConvKB(BaseClass):
+    def __init__(self, dataset, device, **kwargs):
+        super().__init__()
+        self.device = device
+        self.emb_dim = {'entity': kwargs['ent_emb_dim'], 'relation': kwargs['rel_emb_dim']}
+        self.conv_filters = kwargs['conv_filters']
+        self.input_drop = torch.nn.Dropout(kwargs['input_drop'])
+        self.hidden_drop = torch.nn.Dropout(kwargs['hidden_drop'])
+        self.E = torch.nn.Embedding(dataset.num_ent(), self.emb_dim['entity'], padding_idx=0)
+        self.R = torch.nn.Embedding(dataset.num_rel(), self.emb_dim['relation'], padding_idx=0)
+        self.conv = torch.nn.Conv2d(1, self.conv_filters, (1, 7))
+        self.fc = torch.nn.Linear(self.emb_dim['entity'] * self.conv_filters, 1)
+    
+    def init(self):
+        self.E.weight.data[0] = torch.ones(self.emb_dim['entity'])
+        self.R.weight.data[0] = torch.ones(self.emb_dim['relation'])
+        xavier_uniform_(self.E.weight.data[1:])
+        xavier_uniform_(self.R.weight.data[1:])
+        xavier_uniform_(self.conv.weight)
+        torch.nn.init.zeros_(self.conv.bias)
+        xavier_uniform_(self.fc.weight)
+        torch.nn.init.zeros_(self.fc.bias)
+
+    
+    def forward(self, r_idx, e1_idx, e2_idx, e3_idx, e4_idx, e5_idx, e6_idx, ms, bs):
+        r = self.R(r_idx)
+        e1 = self.E(e1_idx)
+        e2 = self.E(e2_idx)
+        e3 = self.E(e3_idx)
+        e4 = self.E(e4_idx)
+        e5 = self.E(e5_idx)
+        e6 = self.E(e6_idx)
+
+        x = torch.stack([r, e1, e2, e3, e4, e5, e6], dim=1).view(-1, 1, self.emb_dim['entity'], 7)
+        x = self.input_drop(x)
+        y = self.conv(x).view(-1, self.emb_dim['entity'] * self.conv_filters)
+        y = F.relu(y)
+        y = self.hidden_drop(y)
+        z = self.fc(y)
+        return z
+        
