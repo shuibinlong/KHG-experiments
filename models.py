@@ -183,14 +183,11 @@ class HypE(BaseClass):
         x = x.permute(1, 0, 2, 3)
         x = F.conv2d(x, k, stride=self.stride, groups=e.size(0))
         x = x.view(e.size(0), 1, self.out_channels, 1-self.filt_h+1, -1)
-        # x = F.relu(x)
         x = x.permute(0, 3, 4, 1, 2)
         x = torch.sum(x, dim=3)
         x = x.permute(0, 3, 1, 2).contiguous()
         x = x.view(e.size(0), -1)
         x = self.fc(x)
-        x = self.hidden_drop(x)
-        x = F.relu(x)
         return x
 
     def forward(self, r_idx, e1_idx, e2_idx, e3_idx, e4_idx, e5_idx, e6_idx, ms, bs):
