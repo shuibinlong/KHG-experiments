@@ -30,7 +30,7 @@ class Experiment:
         self.restartable = args.restartable
         self.opt = args.opt
         self.reg = args.reg
-        self.device = torch.device('cpu')
+        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.kwargs = {'ent_emb_dim': args.emb_dim, 'rel_emb_dim': args.rel_emb_dim, 'stride': args.stride, 'conv_kernel_size': args.conv_kernel_size, 'ent_emb_h': args.ent_emb_h, 'ent_emb_w': args.ent_emb_w, 'input_drop': args.input_drop, 'hidden_drop': args.hidden_drop, 'feature_map_dropout': args.feature_map_dropout, "in_channels":args.in_channels,"out_channels":args.out_channels, "filt_h":args.filt_h, "filt_w":args.filt_w, "conv_filters":args.conv_filters}
         self.hyperpars = {"model":args.model,"lr":args.lr,"emb_dim":args.emb_dim,"out_channels":args.out_channels,
                           "filt_w":args.filt_w,"nr":args.nr,"stride":args.stride, "hidden_drop":args.hidden_drop, "input_drop":args.input_drop}
@@ -347,10 +347,10 @@ if __name__ == '__main__':
     parser.add_argument('-rel_emb_dim', type=int, default=200)
     parser.add_argument('-ent_emb_h', type=int, default=10)
     parser.add_argument('-ent_emb_w', type=int, default=20)
+    parser.add_argument('-conv_filters', type=int, default=5)
     parser.add_argument('-conv_kernel_size', type=int, default=2)
     parser.add_argument('-conv_use_bias', type=bool, default=True)
     parser.add_argument('-feature_map_dropout', type=float, default=0.2)
-    parser.add_argument('-conv_filters', type=int, default=100)
     parser.add_argument('-num_iterations', type=int, default=1000)
     parser.add_argument('-batch_size', type=int, default=128)
     parser.add_argument("-test", action="store_true", help="If -test is set, then you must specify a -pretrained model. "
