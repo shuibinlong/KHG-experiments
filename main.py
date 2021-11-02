@@ -31,7 +31,7 @@ class Experiment:
         self.opt = args.opt
         self.reg = args.reg
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-        self.kwargs = {'ent_emb_dim': args.emb_dim, 'rel_emb_dim': args.rel_emb_dim, 'stride': args.stride, 'conv_kernel_size': args.conv_kernel_size, 'ent_emb_h': args.ent_emb_h, 'ent_emb_w': args.ent_emb_w, 'input_drop': args.input_drop, 'hidden_drop': args.hidden_drop, 'feature_map_dropout': args.feature_map_dropout, "in_channels":args.in_channels,"out_channels":args.out_channels, "filt_h":args.filt_h, "filt_w":args.filt_w, "conv_filters":args.conv_filters}
+        self.kwargs = {'ent_emb_dim': args.emb_dim, 'rel_emb_dim': args.rel_emb_dim, 'stride': args.stride, 'conv_kernel_size': args.conv_kernel_size, 'ent_emb_h': args.ent_emb_h, 'ent_emb_w': args.ent_emb_w, 'input_drop': args.input_drop, 'hidden_drop': args.hidden_drop, 'feature_map_dropout': args.feature_map_dropout, "in_channels":args.in_channels,"out_channels":args.out_channels, "filt_h":args.filt_h, "filt_w":args.filt_w, "conv_filters":args.conv_filters, 'conv_use_bias': args.conv_use_bias}
         self.hyperpars = {"model":args.model,"lr":args.lr,"emb_dim":args.emb_dim,"out_channels":args.out_channels,
                           "filt_w":args.filt_w,"nr":args.nr,"stride":args.stride, "hidden_drop":args.hidden_drop, "input_drop":args.input_drop}
 
@@ -85,8 +85,8 @@ class Experiment:
             model = MTransH(self.dataset, **self.kwargs).to(self.device)
         elif model_name == 'HyperConvR':
             model = HyperConvR(self.dataset, self.device, **self.kwargs).to(self.device)
-        elif model_name == 'HyperConvKB':
-            model = HyperConvKB(self.dataset, self.device, **self.kwargs).to(self.device)
+        elif model_name == 'HyperConvE':
+            model = HyperConvE(self.dataset, self.device, **self.kwargs).to(self.device)
         else:
             raise Exception("!!!! No mode called {} found !!!!".format(self.model_name))
         return model
@@ -211,14 +211,10 @@ class Experiment:
                 last_batch = self.dataset.was_last_batch()
                 self.opt.zero_grad()
                 number_of_positive = len(np.where(targets > 0)[0])
-                if self.model_name == "HypE":
+                if self.model_name in ['HypE', 'HyperConvR', 'HyperConvE']:
                     predictions = self.model.forward(r, e1, e2, e3, e4, e5, e6, ms, bs)
                 elif self.model_name == "MTransH":
                     predictions = self.model.forward(r, e1, e2, e3, e4, e5, e6, ms)
-                elif self.model_name == 'HyperConvR':
-                    predictions = self.model.forward(r, e1, e2, e3, e4, e5, e6, ms, bs)
-                elif self.model_name == 'HyperConvKB':
-                    predictions = self.model.forward(r, e1, e2, e3, e4, e5, e6, ms, bs)
                 else:
                     predictions = self.model.forward(r, e1, e2, e3, e4, e5, e6)
                 predictions = self.padd_and_decompose(targets, predictions, self.neg_ratio*self.max_arity)
@@ -244,7 +240,7 @@ class Experiment:
                     if is_best_model:
                         self.best_model = self.model
                         # Update the best_mrr value
-                        self.best_model.best_mrr.data = torch.from_numpy(np.array([mrr]))
+                        self.best_model.best_mrr.data = torch.from_numpy(np.array([mrr]))   
                         self.best_model.best_itr.data = torch.from_numpy(np.array([it]))
                     # Save the model at checkpoint
                     self.save_model(it, "valid", is_best_model=is_best_model)
@@ -347,8 +343,8 @@ if __name__ == '__main__':
     parser.add_argument('-rel_emb_dim', type=int, default=200)
     parser.add_argument('-ent_emb_h', type=int, default=10)
     parser.add_argument('-ent_emb_w', type=int, default=20)
-    parser.add_argument('-conv_filters', type=int, default=5)
-    parser.add_argument('-conv_kernel_size', type=int, default=2)
+    parser.add_argument('-conv_filters', type=int, default=8)
+    parser.add_argument('-conv_kernel_size', type=int, default=3)
     parser.add_argument('-conv_use_bias', type=bool, default=True)
     parser.add_argument('-feature_map_dropout', type=float, default=0.2)
     parser.add_argument('-num_iterations', type=int, default=1000)
