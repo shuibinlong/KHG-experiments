@@ -341,22 +341,22 @@ class HyperConvE(BaseClass):
         super().__init__()
         self.cur_itr = torch.nn.Parameter(torch.tensor(1, dtype=torch.int32), requires_grad=False)
         self.device = device
-        self.emb_dim = {'entity': kwargs['ent_emb_dim'], 'relation': kwargs['rel_emb_dim'], 'conv_h': kwargs['ent_emb_h'], 'conv_w': kwargs['ent_emb_w']}
+        self.emb_dim = {'entity': kwargs['entity_emb_dim'], 'relation': kwargs['relation_emb_dim'], 'reshape': kwargs['conv']['reshape']}
         self.max_arity = 6
         self.E = torch.nn.Embedding(dataset.num_ent(), self.emb_dim['entity'], padding_idx=0)
         self.R = torch.nn.Embedding(dataset.num_rel(), self.emb_dim['relation'], padding_idx=0)
         self.input_drop = torch.nn.Dropout(kwargs['input_drop'])
         self.hidden_drop = torch.nn.Dropout(kwargs['hidden_drop'])
-        self.feature_map_drop = torch.nn.Dropout2d(kwargs['feature_map_dropout'])
-        self.conv_out_channels = kwargs['conv_filters']
-        self.kernel_size = kwargs['conv_kernel_size']
-        self.stride = kwargs['stride']
-        self.conv = torch.nn.Conv2d(1, self.conv_out_channels, (self.kernel_size, self.kernel_size), self.stride, 0, bias=kwargs['conv_use_bias'])
+        self.feature_map_drop = torch.nn.Dropout2d(kwargs['conv']['feature_map_dropout'])
+        self.conv_out_channels = kwargs['conv']['filters']
+        self.kernel_size = kwargs['conv']['kernel_size']
+        self.stride = kwargs['conv']['stride']
+        self.conv = torch.nn.Conv2d(1, self.conv_out_channels, self.kernel_size, self.stride, 0, bias=kwargs['conv']['use_bias'])
         self.bn0 = torch.nn.BatchNorm2d(1)
         self.bn1 = torch.nn.BatchNorm2d(self.conv_out_channels)
         self.bn2 = torch.nn.BatchNorm1d(self.emb_dim['entity'])
-        self.filter_h = (self.emb_dim['conv_h'] * 2 - self.kernel_size) // self.stride + 1
-        self.filter_w = (self.emb_dim['conv_w'] - self.kernel_size) // self.stride + 1
+        self.filter_h = (self.emb_dim['reshape'][0] * 2 - self.kernel_size[0]) // self.stride + 1
+        self.filter_w = (self.emb_dim['reshape'][1] - self.kernel_size[1]) // self.stride + 1
         fc_length = self.conv_out_channels * self.filter_h * self.filter_w
         self.fc = torch.nn.Linear(fc_length, self.emb_dim['entity'])
     
@@ -368,9 +368,9 @@ class HyperConvE(BaseClass):
 
     def convolve(self, e_idx, r_idx):
         batch_size = e_idx.shape[0]
-        e = self.E(e_idx).view(-1, 1, self.emb_dim['conv_h'], self.emb_dim['conv_w'])
-        r = self.R(r_idx).view(-1, 1, self.emb_dim['conv_h'], self.emb_dim['conv_w'])
-        
+        e = self.E(e_idx).view(-1, 1, self.emb_dim['reshape'][0], self.emb_dim['reshape'][1])
+        r = self.R(r_idx).view(-1, 1, self.emb_dim['reshape'][0], self.emb_dim['reshape'][1])
+
         stacked_inputs = torch.cat([e, r], 2)
         # stacked_inputs = self.bn0(stacked_inputs)
         x = self.input_drop(stacked_inputs)
