@@ -8,6 +8,7 @@ import numpy as np
 import argparse
 import torch
 from torch.nn import functional as F
+from tqdm import *
 from models import *
 from dataset import Dataset
 from tester import Tester
@@ -33,7 +34,7 @@ class Experiment:
         self.restartable = config.get('restartable')
         self.opt = config.get('optimizer')
         self.reg = config.get('weight_decay')
-        self.device = torch.device('cpu')
+        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.kwargs = config
         self.hyperpars = config
 
@@ -203,14 +204,12 @@ class Experiment:
         loss_layer = torch.nn.CrossEntropyLoss()
         print("Starting training at iteration ... {}".format(self.model.cur_itr.data))
         for it in range(self.model.cur_itr.data, self.num_iterations+1):
-            last_batch = False
             self.model.train()
             self.model.cur_itr.data += 1
             losses = 0
             st = time.time()
-            while not last_batch:
+            for _ in tqdm(range((len(self.dataset.data['train']) + self.batch_size - 1) // self.batch_size), desc=f'Epoch #{it}'):
                 r, e1, e2, e3, e4, e5, e6, targets, ms, bs = self.dataset.next_batch(self.batch_size, neg_ratio=self.neg_ratio, device=self.device)
-                last_batch = self.dataset.was_last_batch()
                 self.opt.zero_grad()
                 number_of_positive = len(np.where(targets > 0)[0])
                 if self.model_name in ['HypE', 'HyperConvR', 'HyperConvE']:
@@ -225,11 +224,12 @@ class Experiment:
                 loss.backward()
                 self.opt.step()
                 losses += loss.item()
+            assert self.dataset.was_last_batch()
 
             print("Iteration #{}: loss={}, time={}".format(it, losses, time.time() - st))
 
             # Evaluate the model every 100th iteration or if it is the last iteration
-            if (it % 100 == 0) or (it == self.num_iterations):
+            if (it % 200 == 0) or (it == self.num_iterations):
                 self.model.eval()
                 with torch.no_grad():
                     print("validation:")
