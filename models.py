@@ -280,7 +280,7 @@ class HyperConvR(BaseClass):
         self.hidden_drop = torch.nn.Dropout(kwargs['hidden_drop'])
         self.max_arity = 6
         self.E = torch.nn.Embedding(dataset.num_ent(), self.emb_dim['entity'], padding_idx=0)
-        self.R = torch.nn.Embedding(dataset.num_rel(), self.emb_dim['relation'], padding_idx=0)
+        self.R = torch.nn.Embedding(dataset.num_rel(), self.emb_dim['relation'] * self.max_arity, padding_idx=0)
         self.bn0 = torch.nn.BatchNorm2d(1)
         self.bn1 = torch.nn.BatchNorm2d(self.conv_out_channels)
         self.bn2 = torch.nn.BatchNorm1d(self.emb_dim['entity'])
@@ -292,11 +292,11 @@ class HyperConvR(BaseClass):
     
     def init(self):
         self.E.weight.data[0] = torch.ones(self.emb_dim['entity'])
-        self.R.weight.data[0] = torch.ones(self.emb_dim['relation'])
+        self.R.weight.data[0] = torch.ones(self.emb_dim['relation'] * self.max_arity)
         xavier_uniform_(self.E.weight.data[1:])
         xavier_uniform_(self.R.weight.data[1:])
 
-    def convolve(self, e_idx, r_idx):
+    def convolve(self, e_idx, r):
         batch_size = e_idx.shape[0]
 
         e = self.E(e_idx)
@@ -304,8 +304,6 @@ class HyperConvR(BaseClass):
         e = e.view(1, -1, *self.emb_dim['reshape'])
         e = self.input_drop(e)
 
-
-        r = self.R(r_idx)
         # r = self.bn3(r)
         kernel = r.view(-1, 1, *self.kernel_size)
         kernel = self.input_drop(kernel)
@@ -323,12 +321,13 @@ class HyperConvR(BaseClass):
         return x
     
     def forward(self, r_idx, e1_idx, e2_idx, e3_idx, e4_idx, e5_idx, e6_idx, ms, bs):
-        e1 = self.convolve(e1_idx, r_idx) * ms[:,0].view(-1, 1) + bs[:,0].view(-1, 1)
-        e2 = self.convolve(e2_idx, r_idx) * ms[:,1].view(-1, 1) + bs[:,1].view(-1, 1)
-        e3 = self.convolve(e3_idx, r_idx) * ms[:,2].view(-1, 1) + bs[:,2].view(-1, 1)
-        e4 = self.convolve(e4_idx, r_idx) * ms[:,3].view(-1, 1) + bs[:,3].view(-1, 1)
-        e5 = self.convolve(e5_idx, r_idx) * ms[:,4].view(-1, 1) + bs[:,4].view(-1, 1)
-        e6 = self.convolve(e6_idx, r_idx) * ms[:,5].view(-1, 1) + bs[:,5].view(-1, 1)
+        r = self.R(r_idx).view(-1, self.emb_dim['relation'], self.max_arity)
+        e1 = self.convolve(e1_idx, r[:, :, 0]) * ms[:,0].view(-1, 1) + bs[:,0].view(-1, 1)
+        e2 = self.convolve(e2_idx, r[:, :, 1]) * ms[:,1].view(-1, 1) + bs[:,1].view(-1, 1)
+        e3 = self.convolve(e3_idx, r[:, :, 2]) * ms[:,2].view(-1, 1) + bs[:,2].view(-1, 1)
+        e4 = self.convolve(e4_idx, r[:, :, 3]) * ms[:,3].view(-1, 1) + bs[:,3].view(-1, 1)
+        e5 = self.convolve(e5_idx, r[:, :, 4]) * ms[:,4].view(-1, 1) + bs[:,4].view(-1, 1)
+        e6 = self.convolve(e6_idx, r[:, :, 5]) * ms[:,5].view(-1, 1) + bs[:,5].view(-1, 1)
 
         y = e1 * e2 * e3 * e4 * e5 * e6
         y = self.hidden_drop(y)

@@ -3,7 +3,7 @@
     "dataset_name": "JF17K",
     "batch_size": 128,
     "epochs": 400,
-    "lr": 0.003,
+    "lr": 0.001,
     "optimizer": "Adam",
     "weight_decay": 0.0,
     "nr": 10,
