@@ -344,7 +344,7 @@ class HyperConvE(BaseClass):
         self.emb_dim = {'entity': kwargs['entity_emb_dim'], 'relation': kwargs['relation_emb_dim'], 'reshape': kwargs['conv']['reshape']}
         self.max_arity = 6
         self.E = torch.nn.Embedding(dataset.num_ent(), self.emb_dim['entity'], padding_idx=0)
-        self.R = torch.nn.Embedding(dataset.num_rel(), self.emb_dim['relation'], padding_idx=0)
+        self.R = torch.nn.Embedding(dataset.num_rel(), self.emb_dim['relation'] * self.max_arity, padding_idx=0)
         self.input_drop = torch.nn.Dropout(kwargs['input_drop'])
         self.hidden_drop = torch.nn.Dropout(kwargs['hidden_drop'])
         self.feature_map_drop = torch.nn.Dropout2d(kwargs['conv']['feature_map_dropout'])
@@ -362,36 +362,37 @@ class HyperConvE(BaseClass):
     
     def init(self):
         self.E.weight.data[0] = torch.ones(self.emb_dim['entity'])
-        self.R.weight.data[0] = torch.ones(self.emb_dim['relation'])
+        self.R.weight.data[0] = torch.ones(self.emb_dim['relation'] * self.max_arity)
         xavier_uniform_(self.E.weight.data[1:])
         xavier_uniform_(self.R.weight.data[1:])
 
-    def convolve(self, e_idx, r_idx):
+    def convolve(self, e_idx, r):
         batch_size = e_idx.shape[0]
         e = self.E(e_idx).view(-1, 1, self.emb_dim['reshape'][0], self.emb_dim['reshape'][1])
-        r = self.R(r_idx).view(-1, 1, self.emb_dim['reshape'][0], self.emb_dim['reshape'][1])
+        r = r.view(-1, 1, self.emb_dim['reshape'][0], self.emb_dim['reshape'][1])
 
         stacked_inputs = torch.cat([e, r], 2)
-        # stacked_inputs = self.bn0(stacked_inputs)
+        stacked_inputs = self.bn0(stacked_inputs)
         x = self.input_drop(stacked_inputs)
         x = self.conv(x)
-        # x = self.bn1(x)
-        # x = F.relu(x)
-        # x = self.feature_map_drop(x)
+        x = self.bn1(x)
+        x = F.relu(x)
+        x = self.feature_map_drop(x)
         x = x.view(batch_size, -1)
         x = self.fc(x)
-        # x = self.hidden_drop(x)
-        # x = self.bn2(x)
-        # x = F.relu(x)
+        x = self.hidden_drop(x)
+        x = self.bn2(x)
+        x = F.relu(x)
         return x        
 
     def forward(self, r_idx, e1_idx, e2_idx, e3_idx, e4_idx, e5_idx, e6_idx, ms, bs):
-        e1 = self.convolve(e1_idx, r_idx) * ms[:,0].view(-1, 1) + bs[:,0].view(-1, 1)
-        e2 = self.convolve(e2_idx, r_idx) * ms[:,1].view(-1, 1) + bs[:,1].view(-1, 1)
-        e3 = self.convolve(e3_idx, r_idx) * ms[:,2].view(-1, 1) + bs[:,2].view(-1, 1)
-        e4 = self.convolve(e4_idx, r_idx) * ms[:,3].view(-1, 1) + bs[:,3].view(-1, 1)
-        e5 = self.convolve(e5_idx, r_idx) * ms[:,4].view(-1, 1) + bs[:,4].view(-1, 1)
-        e6 = self.convolve(e6_idx, r_idx) * ms[:,5].view(-1, 1) + bs[:,5].view(-1, 1)
+        r = self.R(r_idx).view(-1, self.max_arity, self.emb_dim['relation'])
+        e1 = self.convolve(e1_idx, r[:, 0, :]) * ms[:,0].view(-1, 1) + bs[:,0].view(-1, 1)
+        e2 = self.convolve(e2_idx, r[:, 1, :]) * ms[:,1].view(-1, 1) + bs[:,1].view(-1, 1)
+        e3 = self.convolve(e3_idx, r[:, 2, :]) * ms[:,2].view(-1, 1) + bs[:,2].view(-1, 1)
+        e4 = self.convolve(e4_idx, r[:, 3, :]) * ms[:,3].view(-1, 1) + bs[:,3].view(-1, 1)
+        e5 = self.convolve(e5_idx, r[:, 4, :]) * ms[:,4].view(-1, 1) + bs[:,4].view(-1, 1)
+        e6 = self.convolve(e6_idx, r[:, 5, :]) * ms[:,5].view(-1, 1) + bs[:,5].view(-1, 1)
         
         y = e1 * e2 * e3 * e4 * e5 * e6
         y = self.hidden_drop(y)

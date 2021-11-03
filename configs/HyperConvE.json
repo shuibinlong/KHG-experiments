@@ -2,7 +2,7 @@
     "model_name": "HyperConvE",
     "dataset_name": "JF17K",
     "batch_size": 128,
-    "epochs": 1000,
+    "epochs": 400,
     "lr": 0.003,
     "optimizer": "Adam",
     "weight_decay": 0.0,
