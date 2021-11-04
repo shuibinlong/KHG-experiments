@@ -90,6 +90,8 @@ class Experiment:
             model = HyperConvR(self.dataset, self.device, **self.kwargs).to(self.device)
         elif model_name == 'HyperConvE':
             model = HyperConvE(self.dataset, self.device, **self.kwargs).to(self.device)
+        elif model_name == 'HyperConvKB':
+            model = HyperConvKB(self.dataset, self.device, **self.kwargs).to(self.device)
         else:
             raise Exception("!!!! No mode called {} found !!!!".format(self.model_name))
         return model

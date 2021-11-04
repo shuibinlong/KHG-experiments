@@ -396,4 +396,56 @@ class HyperConvE(BaseClass):
         y = self.hidden_drop(y)
         y = torch.sum(y, dim=1)
         return y
+
+class HyperConvKB(BaseClass):
+    def __init__(self, dataset, device, **kwargs):
+        super().__init__()
+        self.cur_itr = torch.nn.Parameter(torch.tensor(1, dtype=torch.int32), requires_grad=False)
+        self.device = device
+        self.emb_dim = {'entity': kwargs['entity_emb_dim'], 'relation': kwargs['relation_emb_dim']}
+        self.max_arity = 6
+        self.E = torch.nn.Embedding(dataset.num_ent(), self.emb_dim['entity'], padding_idx=0)
+        self.R = torch.nn.Embedding(dataset.num_rel(), self.emb_dim['relation'], padding_idx=0)
+        self.input_drop = torch.nn.Dropout(kwargs['input_drop'])
+        self.hidden_drop = torch.nn.Dropout(kwargs['hidden_drop'])
+        self.feature_map_drop = torch.nn.Dropout2d(kwargs['conv']['feature_map_dropout'])
+        self.conv_out_channels = kwargs['conv']['filters']
+        self.kernel_size = kwargs['conv']['kernel_size']
+        self.stride = kwargs['conv']['stride']
+        self.conv = torch.nn.Conv2d(1, self.conv_out_channels, self.kernel_size, self.stride)
+        self.bn0 = torch.nn.BatchNorm2d(1)
+        self.bn1 = torch.nn.BatchNorm2d(self.conv_out_channels)
+        self.bn2 = torch.nn.BatchNorm1d(self.emb_dim['entity'])
+        self.filter_h = (self.emb_dim['entity'] - self.kernel_size[0]) // self.stride + 1
+        self.filter_w = (self.max_arity + 1 - self.kernel_size[1]) // self.stride + 1
+        fc_length = self.conv_out_channels * self.filter_h * self.filter_w
+        self.fc = torch.nn.Linear(fc_length, 1, bias=False)
+    
+    def init(self):
+        self.E.weight.data[0] = torch.ones(self.emb_dim['entity'])
+        self.R.weight.data[0] = torch.ones(self.emb_dim['relation'])
+        xavier_uniform_(self.E.weight.data[1:])
+        xavier_uniform_(self.R.weight.data[1:])
+
+    def forward(self, r_idx, e1_idx, e2_idx, e3_idx, e4_idx, e5_idx, e6_idx):
+        batch_size = r_idx.shape[0]
         
+        r = self.R(r_idx)
+        e1 = self.E(e1_idx)
+        e2 = self.E(e2_idx)
+        e3 = self.E(e3_idx)
+        e4 = self.E(e4_idx)
+        e5 = self.E(e5_idx)
+        e6 = self.E(e6_idx)
+        
+        x = torch.stack([r, e1, e2, e3, e4, e5, e6], dim=2).unsqueeze(1)
+        x = self.input_drop(x)
+        x = self.bn0(x)
+        x = self.conv(x)
+        x = self.bn1(x)
+        x = F.relu(x)
+        x = self.feature_map_drop(x)
+        x = x.view(batch_size, -1)
+        x = self.hidden_drop(x)
+        x = self.fc(x).squeeze()
+        return x
