@@ -184,7 +184,7 @@ class Experiment:
         print("Testing the {} model on {}...".format(self.model_name, self.dataset.name))
         self.model.eval()
         with torch.no_grad():
-            tester = Tester(self.dataset, self.model, "test", self.model_name)
+            tester = Tester(self.dataset, self.model, "test", self.model_name, self.device)
             self.measure, self.measure_by_arity = tester.test(self.test_by_arity)
             # Save the result of the tests
             self.save_model(self.model.cur_itr, "test")
@@ -235,7 +235,7 @@ class Experiment:
                 self.model.eval()
                 with torch.no_grad():
                     print("validation:")
-                    tester = Tester(self.dataset, self.model, "valid", self.model_name)
+                    tester = Tester(self.dataset, self.model, "valid", self.model_name, self.device)
                     measure_valid, _ = tester.test()
                     mrr = measure_valid.mrr["fil"]
                     # This is the best model we have so far if
@@ -256,7 +256,7 @@ class Experiment:
         self.best_model.eval()
         with torch.no_grad():
             print("testing best model at iteration {} .... ".format(self.best_model.best_itr))
-            tester = Tester(self.dataset, self.best_model, "test", self.model_name)
+            tester = Tester(self.dataset, self.best_model, "test", self.model_name, self.device)
             self.measure, self.measure_by_arity = tester.test(self.test_by_arity)
 
         # Save the model at checkpoint
