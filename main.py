@@ -36,7 +36,6 @@ class Experiment:
         self.reg = config.get('weight_decay')
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.kwargs = config
-        self.hyperpars = config
 
         # Load the dataset
         self.dataset = Dataset(config.get('dataset_name'), DEFAULT_MAX_ARITY)
@@ -54,6 +53,7 @@ class Experiment:
         self.save_hparams(config)
 
     def decompose_predictions(self, targets, predictions, max_length):
+        print(targets, targets.shape)
         positive_indices = np.where(targets > 0)[0]
         seq = []
         for ind, val in enumerate(positive_indices):
