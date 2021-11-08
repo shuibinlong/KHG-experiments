@@ -5,52 +5,55 @@ import json
 import time
 import datetime
 import numpy as np
+import argparse
 import torch
 from torch.nn import functional as F
+from tqdm import *
 from models import *
-import argparse
 from dataset import Dataset
 from tester import Tester
+from utils import *
 import math
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 DEFAULT_SAVE_DIR = 'output'
 DEFAULT_MAX_ARITY = 6
 
 class Experiment:
-    def __init__(self, args):
-        self.model_name = args.model
-        self.learning_rate = args.lr
-        self.emb_dim = args.emb_dim
-        self.batch_size = args.batch_size
-        self.neg_ratio = args.nr
+    def __init__(self, config):
+        self.model_name = config.get('model_name')
+        self.learning_rate = config.get('lr')
+        self.emb_dim = config.get('entity_emb_dim')
+        self.batch_size = config.get('batch_size')
+        self.neg_ratio = config.get('nr')
         self.max_arity = DEFAULT_MAX_ARITY
-        self.pretrained = args.pretrained
-        self.test = args.test
-        self.output_dir = args.output_dir
-        self.restartable = args.restartable
-        self.opt = args.opt
-        self.reg = args.reg
+        self.pretrained = config.get('pretrained')
+        self.test = config.get('test')
+        self.output_dir = config.get('output_dir')
+        self.restartable = config.get('restartable')
+        self.opt = config.get('optimizer')
+        self.reg = config.get('weight_decay')
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-        self.kwargs = {'ent_emb_dim': args.emb_dim, 'rel_emb_dim': args.rel_emb_dim, 'stride': args.stride, 'conv_kernel_size': args.conv_kernel_size, 'ent_emb_h': args.ent_emb_h, 'ent_emb_w': args.ent_emb_w, 'input_drop': args.input_drop, 'hidden_drop': args.hidden_drop, 'feature_map_dropout': args.feature_map_dropout, "in_channels":args.in_channels,"out_channels":args.out_channels, "filt_h":args.filt_h, "filt_w":args.filt_w, "conv_filters":args.conv_filters, 'conv_use_bias': args.conv_use_bias}
-        self.hyperpars = {"model":args.model,"lr":args.lr,"emb_dim":args.emb_dim,"out_channels":args.out_channels,
-                          "filt_w":args.filt_w,"nr":args.nr,"stride":args.stride, "hidden_drop":args.hidden_drop, "input_drop":args.input_drop}
+        self.kwargs = config
 
         # Load the dataset
-        self.dataset = Dataset(args.dataset, DEFAULT_MAX_ARITY)
+        self.dataset = Dataset(config.get('dataset_name'), DEFAULT_MAX_ARITY)
 
-        self.num_iterations = args.num_iterations
+        self.num_iterations = config.get('epochs')
         # Create an output dir unless one is given
-        self.output_dir = self.create_output_dir(args.output_dir)
+        self.output_dir = self.create_output_dir(config.get('output_dir'))
         self.measure = None
         self.measure_by_arity = None
-        self.test_by_arity = not args.no_test_by_arity
+        self.test_by_arity = not config.get('no_test_by_arity')
         self.best_model = None
         # Load the specified model and initialize based on given checkpoint (if any)
         self.load_model()
         # Save the hyperparameters to the output_dir
-        self.save_hparams(args)
+        self.save_hparams(config)
 
     def decompose_predictions(self, targets, predictions, max_length):
+        print(targets, targets.shape)
         positive_indices = np.where(targets > 0)[0]
         seq = []
         for ind, val in enumerate(positive_indices):
@@ -87,6 +90,8 @@ class Experiment:
             model = HyperConvR(self.dataset, self.device, **self.kwargs).to(self.device)
         elif model_name == 'HyperConvE':
             model = HyperConvE(self.dataset, self.device, **self.kwargs).to(self.device)
+        elif model_name == 'HyperConvKB':
+            model = HyperConvKB(self.dataset, self.device, **self.kwargs).to(self.device)
         else:
             raise Exception("!!!! No mode called {} found !!!!".format(self.model_name))
         return model
@@ -179,7 +184,7 @@ class Experiment:
         print("Testing the {} model on {}...".format(self.model_name, self.dataset.name))
         self.model.eval()
         with torch.no_grad():
-            tester = Tester(self.dataset, self.model, "test", self.model_name)
+            tester = Tester(self.dataset, self.model, "test", self.model_name, self.device)
             self.measure, self.measure_by_arity = tester.test(self.test_by_arity)
             # Save the result of the tests
             self.save_model(self.model.cur_itr, "test")
@@ -201,14 +206,12 @@ class Experiment:
         loss_layer = torch.nn.CrossEntropyLoss()
         print("Starting training at iteration ... {}".format(self.model.cur_itr.data))
         for it in range(self.model.cur_itr.data, self.num_iterations+1):
-            last_batch = False
             self.model.train()
             self.model.cur_itr.data += 1
             losses = 0
             st = time.time()
-            while not last_batch:
+            for _ in tqdm(range((len(self.dataset.data['train']) + self.batch_size - 1) // self.batch_size), desc=f'Epoch #{it}'):
                 r, e1, e2, e3, e4, e5, e6, targets, ms, bs = self.dataset.next_batch(self.batch_size, neg_ratio=self.neg_ratio, device=self.device)
-                last_batch = self.dataset.was_last_batch()
                 self.opt.zero_grad()
                 number_of_positive = len(np.where(targets > 0)[0])
                 if self.model_name in ['HypE', 'HyperConvR', 'HyperConvE']:
@@ -223,15 +226,16 @@ class Experiment:
                 loss.backward()
                 self.opt.step()
                 losses += loss.item()
+            assert self.dataset.was_last_batch()
 
             print("Iteration #{}: loss={}, time={}".format(it, losses, time.time() - st))
 
             # Evaluate the model every 100th iteration or if it is the last iteration
-            if (it % 100 == 0) or (it == self.num_iterations):
+            if (it % 200 == 0) or (it == self.num_iterations):
                 self.model.eval()
                 with torch.no_grad():
                     print("validation:")
-                    tester = Tester(self.dataset, self.model, "valid", self.model_name)
+                    tester = Tester(self.dataset, self.model, "valid", self.model_name, self.device)
                     measure_valid, _ = tester.test()
                     mrr = measure_valid.mrr["fil"]
                     # This is the best model we have so far if
@@ -252,7 +256,7 @@ class Experiment:
         self.best_model.eval()
         with torch.no_grad():
             print("testing best model at iteration {} .... ".format(self.best_model.best_itr))
-            tester = Tester(self.dataset, self.best_model, "test", self.model_name)
+            tester = Tester(self.dataset, self.best_model, "test", self.model_name, self.device)
             self.measure, self.measure_by_arity = tester.test(self.test_by_arity)
 
         # Save the model at checkpoint
@@ -309,7 +313,7 @@ class Experiment:
                         json.dump(H, f, indent=4, sort_keys=True)
 
 
-    def save_hparams(self, args):
+    def save_hparams(self, config):
         """
         Save the hyperparameters of the model as a json file in the output_dir if train time.
         If the output_dir contains an hparams.json file, then this will be overwritten
@@ -317,52 +321,28 @@ class Experiment:
         If the experiment is only for testing, save the hparams with a filename hparam_test.json
         in order not to overwrite the trained model hparams (in case the pretrained model is saved in output_dir)
         """
-        args_dict = vars(args)
-        hparams_name = "hparams_test.json" if args.test else "hparams.json"
+        hparams_name = "hparams_test.json" if config.get('test') else "hparams.json"
         with open(os.path.join(self.output_dir, hparams_name), 'w') as f:
-            json.dump(args_dict, f, indent=4, sort_keys=True)
+            json.dump(config, f, indent=4, sort_keys=True)
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-model', type=str, default="HSimplE")
-    parser.add_argument('-dataset', type=str, default="JF17K")
-    parser.add_argument('-lr', type=float, default=0.003)
-    parser.add_argument('-opt', type=str, default="Adam")
-    parser.add_argument('-reg', type=float, default=0.0)
-    parser.add_argument('-nr', type=int, default=10)
-    parser.add_argument('-out_channels', type=int, default=6)
-    parser.add_argument('-in_channels', type=int, default=1)
-    parser.add_argument('-filt_w', type=int, default=1)
-    parser.add_argument('-filt_h', type=int, default=1)
-    parser.add_argument('-emb_dim', type=int, default=200)
-    parser.add_argument('-hidden_drop', type=float, default=0.3)
-    parser.add_argument('-input_drop', type=float, default=0.2)
-    parser.add_argument('-stride', type=int, default=1)
-    parser.add_argument('-ent_emb_dim', type=int, default=200)
-    parser.add_argument('-rel_emb_dim', type=int, default=200)
-    parser.add_argument('-ent_emb_h', type=int, default=10)
-    parser.add_argument('-ent_emb_w', type=int, default=20)
-    parser.add_argument('-conv_filters', type=int, default=8)
-    parser.add_argument('-conv_kernel_size', type=int, default=3)
-    parser.add_argument('-conv_use_bias', type=bool, default=True)
-    parser.add_argument('-feature_map_dropout', type=float, default=0.2)
-    parser.add_argument('-num_iterations', type=int, default=1000)
-    parser.add_argument('-batch_size', type=int, default=128)
-    parser.add_argument("-test", action="store_true", help="If -test is set, then you must specify a -pretrained model. "
-                        + "This will perform testing on the pretrained model and save the output in -output_dir")
-    parser.add_argument("-no_test_by_arity", action="store_true", help="If set, then validation will be performed by arity.")
-    parser.add_argument('-pretrained', type=str, default=None, help="A path to a trained model (.chkpnt file), which will be loaded if provided.")
-    parser.add_argument('-output_dir', type=str, default=None, help="A path to the directory where the model will be saved and/or loaded from.")
-    parser.add_argument('-restartable', action="store_true", help="If restartable is set, you must specify an output_dir")
+    parser = argparse.ArgumentParser(description="Knowledge graph inference arguments.")
+    parser.add_argument("-c", "--config", dest="config_file", help="The path of configuration json file.")
     args = parser.parse_args()
 
-    if args.restartable and (args.output_dir is None):
+    if not os.path.exists(args.config_file):
+        parser.error('config file path does not exist.')
+    
+    config = load_json_config(args.config_file)
+    print(config)
+
+    if config['restartable'] and (config['output_dir'] is None):
             parser.error("-restarable requires -output_dir.")
 
-    experiment = Experiment(args)
+    experiment = Experiment(config)
 
-    if args.test:
+    if config['test']:
         print("************** START OF TESTING ********************", experiment.model_name)
         if args.pretrained is None:
             raise Exception("You must provide a trained model to test!")

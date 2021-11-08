@@ -1,0 +1,27 @@
+{
+    "model_name": "HyperConvE",
+    "dataset_name": "JF17K",
+    "batch_size": 128,
+    "epochs": 400,
+    "lr": 0.003,
+    "optimizer": "Adam",
+    "weight_decay": 0.0,
+    "nr": 10,
+    "input_drop": 0.2,
+    "hidden_drop": 0.3,
+    "entity_emb_dim": 200,
+    "relation_emb_dim": 200,
+    "conv": {
+        "reshape": [10, 20],
+        "filters": 8,
+        "stride": 1,
+        "kernel_size": [3, 3],
+        "use_bias": true,
+        "feature_map_dropout": 0.2
+    },
+    "test": false,
+    "no_test_by_arity": false,
+    "pretrained": null,
+    "output_dir": null,
+    "restartable": false
+}

@@ -1,0 +1,23 @@
+{
+    "model_name": "HypE",
+    "dataset_name": "JF17K",
+    "batch_size": 128,
+    "epochs": 400,
+    "lr": 0.01,
+    "nr": 10,
+    "optimizer": "Adagrad",
+    "weight_decay": 0.0,
+    "in_channels": 1,
+    "out_channels": 6,
+    "filt_h": 1,
+    "filt_w": 1,
+    "stride": 2,
+    "entity_emb_dim": 200,
+    "input_drop": 0.2,
+    "hidden_drop": 0.2,
+    "test": false,
+    "no_test_by_arity": false,
+    "pretrained": null,
+    "output_dir": null,
+    "restartable": false
+}
