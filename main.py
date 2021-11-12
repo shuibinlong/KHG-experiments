@@ -15,7 +15,7 @@ from tester import Tester
 from utils import *
 import math
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 DEFAULT_SAVE_DIR = 'output'
 DEFAULT_MAX_ARITY = 6
@@ -53,7 +53,6 @@ class Experiment:
         self.save_hparams(config)
 
     def decompose_predictions(self, targets, predictions, max_length):
-        print(targets, targets.shape)
         positive_indices = np.where(targets > 0)[0]
         seq = []
         for ind, val in enumerate(positive_indices):
@@ -72,19 +71,19 @@ class Experiment:
         return torch.stack(seq)
 
     def get_model_from_name(self, model_name):
-        """
+        '''
         Instantiate a model object given the model name
-        """
+        '''
         model = None
-        if model_name == "MDistMult":
+        if model_name == 'MDistMult':
             model = MDistMult(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
-        elif model_name == "MCP":
+        elif model_name == 'MCP':
             model = MCP(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
-        elif model_name == "HSimplE":
+        elif model_name == 'HSimplE':
             model = HSimplE(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
-        elif model_name == "HypE":
+        elif model_name == 'HypE':
             model = HypE(self.dataset, self.emb_dim, **self.kwargs).to(self.device)
-        elif model_name == "MTransH":
+        elif model_name == 'MTransH':
             model = MTransH(self.dataset, **self.kwargs).to(self.device)
         elif model_name == 'HyperConvR':
             model = HyperConvR(self.dataset, self.device, **self.kwargs).to(self.device)
@@ -93,18 +92,18 @@ class Experiment:
         elif model_name == 'HyperConvKB':
             model = HyperConvKB(self.dataset, self.device, **self.kwargs).to(self.device)
         else:
-            raise Exception("!!!! No mode called {} found !!!!".format(self.model_name))
+            raise Exception('!!!! No mode called {} found !!!!'.format(self.model_name))
         return model
 
 
     def load_last_saved_model(self, output_dir):
-        """
+        '''
         Find the last saved model in the output_dir and load it.
         Load also the best_model
         If no model found in the output_dir or if the dir does not exists
         initialize the model randomly.
         Sets self.model, self.best_model
-        """
+        '''
         model_found = False
         # If the output_dir contains a model, then it will be loaded
         # Pick the latest saved model
@@ -114,7 +113,7 @@ class Experiment:
             # Sort the files based on the iteration number
             model_list_sorted = sorted(model_list, key=lambda f: int(re.match(r'model_(\d+)itr.chkpnt', f).groups(0)[0]))
         except:
-            print("*** NO SAVED MODEL FOUND in {}. LOADING FROM SCRATCH. ****".format(self.output_dir))
+            print('*** NO SAVED MODEL FOUND in {}. LOADING FROM SCRATCH. ****'.format(self.output_dir))
             # Initilize the model
             self.model.init()
         else: # if no exceptions, then run the following
@@ -131,37 +130,37 @@ class Experiment:
 
                     try:
                         # Load the best model
-                        best_model_path = os.path.join(self.output_dir, "best_model.chkpnt")
+                        best_model_path = os.path.join(self.output_dir, 'best_model.chkpnt')
                         self.best_model = self.get_model_from_name(self.model_name)
                         self.best_model.load_state_dict(torch.load(best_model_path))
-                        print("Loading the model {} with best MRR {}.".format(self.pretrained, self.best_model.best_mrr))
+                        print('Loading the model {} with best MRR {}.'.format(self.pretrained, self.best_model.best_mrr))
                     except:
-                        print("*** NO BEST MODEL FOUND in {}. ****".format(self.output_dir))
+                        print('*** NO BEST MODEL FOUND in {}. ****'.format(self.output_dir))
                         # Set the best model to None
                         self.best_model = None
 
         if not model_found:
-            print("*** NO MODEL/OPTIMIZER FOUND in {}. LOADING FROM SCRATCH. ****".format(self.output_dir))
+            print('*** NO MODEL/OPTIMIZER FOUND in {}. LOADING FROM SCRATCH. ****'.format(self.output_dir))
             # Initilize the model
             self.model.init()
 
 
     def load_model(self):
-        """ If a pretrained model is provided, then it will be loaded. """
-        """ If the output_dir contains a (half-)trained model, then it will be loaded """
-        """ Priority is given to pretrained model. """
+        ''' If a pretrained model is provided, then it will be loaded. '''
+        ''' If the output_dir contains a (half-)trained model, then it will be loaded '''
+        ''' Priority is given to pretrained model. '''
 
-        print("Initializing the model ...")
+        print('Initializing the model ...')
         self.model = self.get_model_from_name(self.model_name)
 
         # Load the pretrained model
-        if self.opt == "Adagrad":
+        if self.opt == 'Adagrad':
             self.opt = torch.optim.Adagrad(self.model.parameters(), lr=self.learning_rate, weight_decay=self.reg)
-        elif self.opt == "Adam":
+        elif self.opt == 'Adam':
             self.opt = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate, weight_decay=self.reg)
 
         if self.pretrained is not None:
-            print("Loading the pretrained model at {} for testing".format(self.pretrained))
+            print('Loading the pretrained model at {} for testing'.format(self.pretrained))
             self.model.load_state_dict(torch.load(self.pretrained))
             # Construct the name of the optimizer file based on the pretrained model path
             opt_path = os.path.join(os.path.dirname(self.pretrained), os.path.basename(self.pretrained).replace('model','opt'))
@@ -171,7 +170,7 @@ class Experiment:
             elif not self.test:
                 # if no optimizer found and 'test` is not set, then raise an error
                 # (we need a pretrained optimizer in order to continue training
-                raise Exception("*** NO OPTIMIZER FOUND. SKIPPING. ****")
+                raise Exception('*** NO OPTIMIZER FOUND. SKIPPING. ****')
         elif self.restartable and os.path.isdir(self.output_dir):
             # If the output_dir contains a model, then it will be loaded
             self.load_last_saved_model(self.output_dir)
@@ -181,30 +180,30 @@ class Experiment:
 
 
     def test_and_eval(self):
-        print("Testing the {} model on {}...".format(self.model_name, self.dataset.name))
+        print('Testing the {} model on {}...'.format(self.model_name, self.dataset.name))
         self.model.eval()
         with torch.no_grad():
-            tester = Tester(self.dataset, self.model, "test", self.model_name, self.device)
+            tester = Tester(self.dataset, self.model, 'test', self.model_name, self.device)
             self.measure, self.measure_by_arity = tester.test(self.test_by_arity)
             # Save the result of the tests
-            self.save_model(self.model.cur_itr, "test")
+            self.save_model(self.model.cur_itr, 'test')
 
 
     def train_and_eval(self):
         # If the number of iterations is the same as the current iteration, exit.
         if (self.model.cur_itr.data >= self.num_iterations):
-            print("*************")
-            print("Number of iterations is the same as that in the pretrained model.")
-            print("Nothing left to train. Exiting.")
-            print("*************")
+            print('*************')
+            print('Number of iterations is the same as that in the pretrained model.')
+            print('Nothing left to train. Exiting.')
+            print('*************')
             return
 
-        print("Training the {} model...".format(self.model_name))
-        print("Number of training data points: {}".format(len(self.dataset.data["train"])))
+        print('Training the {} model...'.format(self.model_name))
+        print('Number of training data points: {}'.format(len(self.dataset.data['train'])))
 
 
         loss_layer = torch.nn.CrossEntropyLoss()
-        print("Starting training at iteration ... {}".format(self.model.cur_itr.data))
+        print('Starting training at iteration ... {}'.format(self.model.cur_itr.data))
         for it in range(self.model.cur_itr.data, self.num_iterations+1):
             self.model.train()
             self.model.cur_itr.data += 1
@@ -214,9 +213,9 @@ class Experiment:
                 r, e1, e2, e3, e4, e5, e6, targets, ms, bs = self.dataset.next_batch(self.batch_size, neg_ratio=self.neg_ratio, device=self.device)
                 self.opt.zero_grad()
                 number_of_positive = len(np.where(targets > 0)[0])
-                if self.model_name in ['HypE', 'HyperConvR', 'HyperConvE']:
+                if self.model_name in ['HypE', 'HyperConvE']:
                     predictions = self.model.forward(r, e1, e2, e3, e4, e5, e6, ms, bs)
-                elif self.model_name == "MTransH":
+                elif self.model_name in ['MTransH', 'HyperConvR']:
                     predictions = self.model.forward(r, e1, e2, e3, e4, e5, e6, ms)
                 else:
                     predictions = self.model.forward(r, e1, e2, e3, e4, e5, e6)
@@ -228,18 +227,18 @@ class Experiment:
                 losses += loss.item()
             assert self.dataset.was_last_batch()
 
-            print("Iteration #{}: loss={}, time={}".format(it, losses, time.time() - st))
+            print('Iteration #{}: loss={}, time={}'.format(it, losses, time.time() - st))
 
             # Evaluate the model every 100th iteration or if it is the last iteration
             if (it % 200 == 0) or (it == self.num_iterations):
                 self.model.eval()
                 with torch.no_grad():
-                    print("validation:")
-                    tester = Tester(self.dataset, self.model, "valid", self.model_name, self.device)
+                    print('validation:')
+                    tester = Tester(self.dataset, self.model, 'valid', self.model_name, self.device)
                     measure_valid, _ = tester.test()
-                    mrr = measure_valid.mrr["fil"]
+                    mrr = measure_valid.mrr['fil']
                     # This is the best model we have so far if
-                    # no "best_model" exists yes, or if this MRR is better than what we had before
+                    # no 'best_model' exists yes, or if this MRR is better than what we had before
                     is_best_model = (self.best_model is None) or (mrr > self.best_model.best_mrr)
                     if is_best_model:
                         self.best_model = self.model
@@ -247,7 +246,7 @@ class Experiment:
                         self.best_model.best_mrr.data = torch.from_numpy(np.array([mrr]))   
                         self.best_model.best_itr.data = torch.from_numpy(np.array([it]))
                     # Save the model at checkpoint
-                    self.save_model(it, "valid", is_best_model=is_best_model)
+                    self.save_model(it, 'valid', is_best_model=is_best_model)
 
 
         #if self.best_model is None:
@@ -255,43 +254,43 @@ class Experiment:
 
         self.best_model.eval()
         with torch.no_grad():
-            print("testing best model at iteration {} .... ".format(self.best_model.best_itr))
-            tester = Tester(self.dataset, self.best_model, "test", self.model_name, self.device)
+            print('testing best model at iteration {} .... '.format(self.best_model.best_itr))
+            tester = Tester(self.dataset, self.best_model, 'test', self.model_name, self.device)
             self.measure, self.measure_by_arity = tester.test(self.test_by_arity)
 
         # Save the model at checkpoint
-        print("Saving model at {}".format(self.output_dir))
-        self.save_model(it, "test")
+        print('Saving model at {}'.format(self.output_dir))
+        self.save_model(it, 'test')
 
 
     def create_output_dir(self, output_dir=None):
-        """
+        '''
         If an output dir is given, then make sure it exists. Otherwise, create one based on time stamp.
-        """
+        '''
         if output_dir is None:
             time = datetime.datetime.now()
-            model_name = '{}_{}_{}'.format(self.model_name, self.dataset.name, time.strftime("%Y%m%d-%H%M%S"))
+            model_name = '{}_{}_{}'.format(self.model_name, self.dataset.name, time.strftime('%Y%m%d-%H%M%S'))
             output_dir = os.path.join(DEFAULT_SAVE_DIR, self.model_name, model_name)
 
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
-            print("Created output directory {}".format(output_dir))
+            print('Created output directory {}'.format(output_dir))
         return output_dir
 
 
     def save_model(self, itr=0, test_or_valid='test', is_best_model=False):
-            """
+            '''
             Save the model state to the output folder.
             If is_best_model is True, then save the model also as best_model.chkpnt
-            """
+            '''
             if is_best_model:
                 torch.save(self.model.state_dict(), os.path.join(self.output_dir, 'best_model.chkpnt'))
-                print("######## Saving the BEST MODEL")
+                print('######## Saving the BEST MODEL')
 
             model_name = 'model_{}itr.chkpnt'.format(itr)
             opt_name = 'opt_{}itr.chkpnt'.format(itr) if itr else '{}.chkpnt'.format(self.model_name)
             measure_name = '{}_measure_{}itr.json'.format(test_or_valid, itr) if itr else '{}.json'.format(self.model_name)
-            print("######## Saving the model {}".format(os.path.join(self.output_dir, model_name)))
+            print('######## Saving the model {}'.format(os.path.join(self.output_dir, model_name)))
 
             torch.save(self.model.state_dict(), os.path.join(self.output_dir, model_name))
             torch.save(self.opt.state_dict(), os.path.join(self.output_dir, opt_name))
@@ -299,8 +298,8 @@ class Experiment:
                 measure_dict = vars(self.measure)
                 # If a best model exists
                 if self.best_model:
-                    measure_dict["best_iteration"] = self.best_model.best_itr.cpu().item()
-                    measure_dict["best_mrr"] = self.best_model.best_mrr.cpu().item()
+                    measure_dict['best_iteration'] = self.best_model.best_itr.cpu().item()
+                    measure_dict['best_mrr'] = self.best_model.best_mrr.cpu().item()
                 with open(os.path.join(self.output_dir, measure_name), 'w') as f:
                         json.dump(measure_dict, f, indent=4, sort_keys=True)
             # Note that measure_by_arity is only computed at test time (not validation)
@@ -314,21 +313,21 @@ class Experiment:
 
 
     def save_hparams(self, config):
-        """
+        '''
         Save the hyperparameters of the model as a json file in the output_dir if train time.
         If the output_dir contains an hparams.json file, then this will be overwritten
         (for restartable jobs, this should not be an issue as the haparams are the same).
         If the experiment is only for testing, save the hparams with a filename hparam_test.json
         in order not to overwrite the trained model hparams (in case the pretrained model is saved in output_dir)
-        """
-        hparams_name = "hparams_test.json" if config.get('test') else "hparams.json"
+        '''
+        hparams_name = 'hparams_test.json' if config.get('test') else 'hparams.json'
         with open(os.path.join(self.output_dir, hparams_name), 'w') as f:
             json.dump(config, f, indent=4, sort_keys=True)
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Knowledge graph inference arguments.")
-    parser.add_argument("-c", "--config", dest="config_file", help="The path of configuration json file.")
+    parser = argparse.ArgumentParser(description='Knowledge graph inference arguments.')
+    parser.add_argument('-c', '--config', dest='config_file', help='The path of configuration json file.')
     args = parser.parse_args()
 
     if not os.path.exists(args.config_file):
@@ -338,15 +337,15 @@ if __name__ == '__main__':
     print(config)
 
     if config['restartable'] and (config['output_dir'] is None):
-            parser.error("-restarable requires -output_dir.")
+            parser.error('-restarable requires -output_dir.')
 
     experiment = Experiment(config)
 
     if config['test']:
-        print("************** START OF TESTING ********************", experiment.model_name)
+        print('************** START OF TESTING ********************', experiment.model_name)
         if args.pretrained is None:
-            raise Exception("You must provide a trained model to test!")
+            raise Exception('You must provide a trained model to test!')
         experiment.test_and_eval()
     else:
-        print("************** START OF TRAINING ********************", experiment.model_name)
+        print('************** START OF TRAINING ********************', experiment.model_name)
         experiment.train_and_eval()
