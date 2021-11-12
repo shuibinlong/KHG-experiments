@@ -26,7 +26,7 @@ class MDistMult(BaseClass):
         self.emb_dim = emb_dim
         self.E = torch.nn.Embedding(dataset.num_ent(), emb_dim, padding_idx=0)
         self.R = torch.nn.Embedding(dataset.num_rel(), emb_dim, padding_idx=0)
-        self.hidden_drop_rate = kwargs["hidden_drop"]
+        self.hidden_drop_rate = kwargs['hidden_drop']
         self.hidden_drop = torch.nn.Dropout(self.hidden_drop_rate)
 
     def init(self):
@@ -61,7 +61,7 @@ class MCP(BaseClass):
         self.E6 = torch.nn.Embedding(dataset.num_ent(), emb_dim, padding_idx=0)
         self.R = torch.nn.Embedding(dataset.num_rel(), emb_dim, padding_idx=0)
 
-        self.hidden_drop_rate = kwargs["hidden_drop"]
+        self.hidden_drop_rate = kwargs['hidden_drop']
         self.hidden_drop = torch.nn.Dropout(self.hidden_drop_rate)
 
 
@@ -100,7 +100,7 @@ class HSimplE(BaseClass):
         self.max_arity = 6
         self.E = torch.nn.Embedding(dataset.num_ent(), emb_dim, padding_idx=0)
         self.R = torch.nn.Embedding(dataset.num_rel(), emb_dim, padding_idx=0)
-        self.hidden_drop_rate = kwargs["hidden_drop"]
+        self.hidden_drop_rate = kwargs['hidden_drop']
         self.hidden_drop = torch.nn.Dropout(self.hidden_drop_rate)
 
 
@@ -131,12 +131,12 @@ class HypE(BaseClass):
     def __init__(self, d, emb_dim, **kwargs):
         super(HypE, self).__init__()
         self.cur_itr = torch.nn.Parameter(torch.tensor(1, dtype=torch.int32), requires_grad=False)
-        self.in_channels = kwargs["in_channels"]
-        self.out_channels = kwargs["out_channels"]
-        self.filt_h = kwargs["filt_h"]
-        self.filt_w = kwargs["filt_w"]
-        self.stride = kwargs["stride"]
-        self.hidden_drop_rate = kwargs["hidden_drop"]
+        self.in_channels = kwargs['in_channels']
+        self.out_channels = kwargs['out_channels']
+        self.filt_h = kwargs['filt_h']
+        self.filt_w = kwargs['filt_w']
+        self.stride = kwargs['stride']
+        self.hidden_drop_rate = kwargs['hidden_drop']
         self.emb_dim = emb_dim
         self.max_arity = 6
         rel_emb_dim = emb_dim
@@ -219,7 +219,7 @@ class MTransH(BaseClass):
         self.b4 = torch.nn.Embedding(dataset.num_rel(), 1)
         self.b5 = torch.nn.Embedding(dataset.num_rel(), 1)
 
-        self.hidden_drop_rate = kwargs["hidden_drop"]
+        self.hidden_drop_rate = kwargs['hidden_drop']
         self.hidden_drop = torch.nn.Dropout(self.hidden_drop_rate)
 
     def init(self):
@@ -271,10 +271,15 @@ class HyperConvR(BaseClass):
         super().__init__()
         self.cur_itr = torch.nn.Parameter(torch.tensor(1, dtype=torch.int32), requires_grad=False)
         self.device = device
-        self.emb_dim = {'entity': kwargs['entity_emb_dim'], 'relation': kwargs['relation_emb_dim'], 'reshape': kwargs['conv']['reshape']}
         self.kernel_size = kwargs['conv']['kernel_size']
         self.conv_out_channels = kwargs['conv']['filters']
         self.stride = kwargs['conv']['stride']
+        self.emb_dim = {
+            'entity': kwargs['entity_emb_dim'],
+            'relation': self.kernel_size[0] * self.kernel_size[1] * self.conv_out_channels,
+            'reshape': kwargs['conv']['reshape']
+        }
+        assert self.emb_dim['entity'] == self.emb_dim['reshape'][0] * self.emb_dim['reshape'][1]
         self.feature_map_drop = torch.nn.Dropout2d(kwargs['conv']['feature_map_dropout'])
         self.input_drop = torch.nn.Dropout(kwargs['input_drop'])
         self.hidden_drop = torch.nn.Dropout(kwargs['hidden_drop'])
@@ -300,36 +305,37 @@ class HyperConvR(BaseClass):
         batch_size = e_idx.shape[0]
 
         e = self.E(e_idx)
-        # e = self.bn2(e)
+        e = self.bn2(e)
         e = e.view(1, -1, *self.emb_dim['reshape'])
         e = self.input_drop(e)
 
-        # r = self.bn3(r)
+        r = self.bn3(r)
         kernel = r.view(-1, 1, *self.kernel_size)
         kernel = self.input_drop(kernel)
 
         x = F.conv2d(e, kernel, stride=self.stride, groups=batch_size)
         x = x.view(batch_size, self.conv_out_channels, self.filter_h, self.filter_w)
-        # x = self.bn1(x)
-        # x = F.relu(x)
-        # x = self.feature_map_drop(x)
+        x = self.bn1(x)
+        x = F.relu(x)
+        x = self.feature_map_drop(x)
         x = x.view(batch_size, -1) # (batch_size, hidden_size)
         x = self.fc(x) # (batch_size, ent_emb_dim)
-        # x = self.hidden_drop(x)
-        # x = self.bn2(x)
-        # x = F.relu(x)
+        x = self.hidden_drop(x)
+        x = self.bn2(x)
+        x = F.relu(x)
         return x
     
-    def forward(self, r_idx, e1_idx, e2_idx, e3_idx, e4_idx, e5_idx, e6_idx, ms, bs):
+    def forward(self, r_idx, e1_idx, e2_idx, e3_idx, e4_idx, e5_idx, e6_idx, ms):
         r = self.R(r_idx).view(-1, self.emb_dim['relation'], self.max_arity)
-        e1 = self.convolve(e1_idx, r[:, :, 0]) * ms[:,0].view(-1, 1) + bs[:,0].view(-1, 1)
-        e2 = self.convolve(e2_idx, r[:, :, 1]) * ms[:,1].view(-1, 1) + bs[:,1].view(-1, 1)
-        e3 = self.convolve(e3_idx, r[:, :, 2]) * ms[:,2].view(-1, 1) + bs[:,2].view(-1, 1)
-        e4 = self.convolve(e4_idx, r[:, :, 3]) * ms[:,3].view(-1, 1) + bs[:,3].view(-1, 1)
-        e5 = self.convolve(e5_idx, r[:, :, 4]) * ms[:,4].view(-1, 1) + bs[:,4].view(-1, 1)
-        e6 = self.convolve(e6_idx, r[:, :, 5]) * ms[:,5].view(-1, 1) + bs[:,5].view(-1, 1)
+        e1 = self.convolve(e1_idx, r[:, :, 0]) * ms[:,0].view(-1, 1)
+        e2 = self.convolve(e2_idx, r[:, :, 1]) * ms[:,1].view(-1, 1)
+        e3 = self.convolve(e3_idx, r[:, :, 2]) * ms[:,2].view(-1, 1)
+        e4 = self.convolve(e4_idx, r[:, :, 3]) * ms[:,3].view(-1, 1)
+        e5 = self.convolve(e5_idx, r[:, :, 4]) * ms[:,4].view(-1, 1)
+        e6 = self.convolve(e6_idx, r[:, :, 5]) * ms[:,5].view(-1, 1)
 
-        y = e1 * e2 * e3 * e4 * e5 * e6
+        y = e1 + e2 + e3 + e4 + e5 + e6
+        y = F.relu(y)
         y = self.hidden_drop(y)
         y = torch.sum(y, dim=1)
         return y

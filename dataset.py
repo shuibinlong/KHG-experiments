@@ -7,50 +7,50 @@ import math
 class Dataset:
     def __init__(self, ds_name, max_arity=6):
         self.name = ds_name
-        self.dir = os.path.join("data", ds_name)
+        self.dir = os.path.join('data', ds_name)
         # THIS NEEDS TO STAY 6
         self.max_arity = max_arity
         # id zero means no entity. Entity ids start from 1.
-        self.ent2id = {"":0}
-        self.rel2id = {"":0}
+        self.ent2id = {'':0}
+        self.rel2id = {'':0}
         self.data = {}
-        print("Loading the dataset {} ....".format(ds_name))
-        self.data["train"] = self.read(os.path.join(self.dir, "train.txt"))
+        print('Loading the dataset {} ....'.format(ds_name))
+        self.data['train'] = self.read(os.path.join(self.dir, 'train.txt'))
         # Shuffle the train set
         np.random.shuffle(self.data['train'])
 
         # Load the test data
-        self.data["test"] = self.read_test(os.path.join(self.dir, "test.txt"))
+        self.data['test'] = self.read_test(os.path.join(self.dir, 'test.txt'))
         # Read the test files by arity, if they exist
         # If they do, then test output will be displayed by arity
         for i in range(2,self.max_arity+1):
-            test_arity = "test_{}".format(i)
-            file_path = os.path.join(self.dir, "test_{}.txt".format(i))
+            test_arity = 'test_{}'.format(i)
+            file_path = os.path.join(self.dir, 'test_{}.txt'.format(i))
             self.data[test_arity] = self.read_test(file_path)
 
-        self.data["valid"] = self.read(os.path.join(self.dir, "valid.txt"))
+        self.data['valid'] = self.read(os.path.join(self.dir, 'valid.txt'))
         self.batch_index = 0
 
     def read(self, file_path):
         if not os.path.exists(file_path):
-            print("*** {} not found. Skipping. ***".format(file_path))
+            print('*** {} not found. Skipping. ***'.format(file_path))
             return ()
-        with open(file_path, "r") as f:
+        with open(file_path, 'r') as f:
             lines = f.readlines()
         tuples = np.zeros((len(lines), self.max_arity + 1))
         for i, line in enumerate(lines):
-            tuples[i] = self.tuple2ids(line.strip().split("\t"))
+            tuples[i] = self.tuple2ids(line.strip().split('\t'))
         return tuples
 
     def read_test(self, file_path):
         if not os.path.exists(file_path):
-            print("*** {} not found. Skipping. ***".format(file_path))
+            print('*** {} not found. Skipping. ***'.format(file_path))
             return ()
-        with open(file_path, "r") as f:
+        with open(file_path, 'r') as f:
             lines = f.readlines()
         tuples = np.zeros((len(lines),  self.max_arity + 1))
         for i, line in enumerate(lines):
-            splitted = line.strip().split("\t")[1:]
+            splitted = line.strip().split('\t')[1:]
             tuples[i] = self.tuple2ids(splitted)
         return tuples
 
@@ -87,16 +87,16 @@ class Dataset:
         return rand_ent
 
     def next_pos_batch(self, batch_size):
-        if self.batch_index + batch_size < len(self.data["train"]):
-            batch = self.data["train"][self.batch_index: self.batch_index+batch_size]
+        if self.batch_index + batch_size < len(self.data['train']):
+            batch = self.data['train'][self.batch_index: self.batch_index+batch_size]
             self.batch_index += batch_size
         else:
-            batch = self.data["train"][self.batch_index:]
+            batch = self.data['train'][self.batch_index:]
             ###shuffle##
             np.random.shuffle(self.data['train'])
             self.batch_index = 0
-        batch = np.append(batch, np.zeros((len(batch), 1)), axis=1).astype("int") #appending the +1 label
-        batch = np.append(batch, np.zeros((len(batch), 1)), axis=1).astype("int") #appending the 0 arity
+        batch = np.append(batch, np.zeros((len(batch), 1)), axis=1).astype('int') #appending the +1 label
+        batch = np.append(batch, np.zeros((len(batch), 1)), axis=1).astype('int') #appending the 0 arity
         return batch
 
     def next_batch(self, batch_size, neg_ratio, device):
@@ -139,5 +139,5 @@ class Dataset:
         return (self.batch_index == 0)
 
     def num_batch(self, batch_size):
-        return int(math.ceil(float(len(self.data["train"])) / batch_size))
+        return int(math.ceil(float(len(self.data['train'])) / batch_size))
 

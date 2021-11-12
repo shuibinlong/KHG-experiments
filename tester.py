@@ -37,18 +37,18 @@ class Tester:
             return [(r, e1, e2, e3, e4, e5, i) for i in range(1, self.dataset.num_ent())]
 
     def add_fact_and_shred(self, fact, queries, raw_or_fil):
-        if raw_or_fil == "raw":
+        if raw_or_fil == 'raw':
             result = [tuple(fact)] + queries
-        elif raw_or_fil == "fil":
+        elif raw_or_fil == 'fil':
             result = [tuple(fact)] + list(set(queries) - self.all_facts_as_set_of_tuples)
         return self.shred_facts(result)
 
 
     def test(self, test_by_arity=False):
-        """
+        '''
         Evaluate the given dataset and print results, either by arity or all at once
-        """
-        settings = ["raw", "fil"]
+        '''
+        settings = ['raw', 'fil']
         normalizer = 0
         self.measure_by_arity = {}
         self.meaddsure = Measure()
@@ -60,13 +60,13 @@ class Tester:
             # Iterate over test sets by arity
             for cur_arity in range(2,self.dataset.max_arity+1):
                 # Reset the normalizer by arity
-                test_by_arity = "test_{}".format(cur_arity)
+                test_by_arity = 'test_{}'.format(cur_arity)
                 # If the dataset does not exit, continue
                 if len(self.dataset.data.get(test_by_arity, ())) == 0 :
-                    print("%%%%% {} does not exist. Skipping.".format(test_by_arity))
+                    print('%%%%% {} does not exist. Skipping.'.format(test_by_arity))
                     continue
 
-                print("**** Evaluating arity {} having {} samples".format(cur_arity, len(self.dataset.data[test_by_arity])))
+                print('**** Evaluating arity {} having {} samples'.format(cur_arity, len(self.dataset.data[test_by_arity])))
                 # Evaluate the test data for arity cur_arity
                 current_measure, normalizer_by_arity =  self.eval_dataset(self.dataset.data[test_by_arity])
 
@@ -85,22 +85,22 @@ class Tester:
 
         # If no samples were evaluated, exit with an error
         if normalizer == 0:
-            raise Exception("No Samples were evaluated! Check your test or validation data!!")
+            raise Exception('No Samples were evaluated! Check your test or validation data!!')
 
         # Normalize the global measure
         self.measure.normalize(normalizer)
 
         # Add the global measure (by ALL arities) to the dict
-        self.measure_by_arity["ALL"] = self.measure
+        self.measure_by_arity['ALL'] = self.measure
 
         # Print out results
-        pr_txt = "Results for ALL ARITIES in {} set".format(self.valid_or_test)
+        pr_txt = 'Results for ALL ARITIES in {} set'.format(self.valid_or_test)
         if test_by_arity:
             for arity in self.measure_by_arity:
-                if arity == "ALL":
+                if arity == 'ALL':
                     print(pr_txt)
                 else:
-                    print("Results for arity {}".format(arity[5:]))
+                    print('Results for arity {}'.format(arity[5:]))
                 print(self.measure_by_arity[arity])
         else:
             print(pr_txt)
@@ -108,11 +108,11 @@ class Tester:
         return self.measure, self.measure_by_arity
 
     def eval_dataset(self, dataset):
-        """
+        '''
         Evaluate the dataset with the given model.
-        """
+        '''
         # Reset normalization parameter
-        settings = ["raw", "fil"]
+        settings = ['raw', 'fil']
         normalizer = 0
         # Contains the measure values for the given dataset (e.g. test for arity 2)
         current_rank = Measure()
@@ -123,7 +123,7 @@ class Tester:
                 queries = self.create_queries(fact, j)
                 for raw_or_fil in settings:
                     r, e1, e2, e3, e4, e5, e6 = self.add_fact_and_shred(fact, queries, raw_or_fil)
-                    if self.model_name in ['HypE', 'HyperConvR', 'HyperConvE']:
+                    if self.model_name in ['HypE', 'HyperConvE']:
                         ms = np.zeros((len(r),6))
                         bs = np.ones((len(r), 6))
 
@@ -133,7 +133,7 @@ class Tester:
                         ms = torch.tensor(ms).float().to(self.device)
                         bs = torch.tensor(bs).float().to(self.device)
                         sim_scores = self.model(r, e1, e2, e3, e4, e5, e6, ms, bs).cpu().data.numpy()
-                    elif (self.model_name == "MTransH"):
+                    elif self.model_name in ['MTransH', 'HyperConvR']:
                         ms = np.zeros((len(r),6))
                         ms[:, 0:arity] = 1
                         ms = torch.tensor(ms).float().to(self.device)
@@ -147,7 +147,7 @@ class Tester:
                     # self.measure.update(rank, raw_or_fil)
 
             if i % 1000 == 0:
-                print("--- Testing sample {}".format(i))
+                print('--- Testing sample {}'.format(i))
 
         return current_rank, normalizer
 
