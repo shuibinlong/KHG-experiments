@@ -433,8 +433,8 @@ class HyperConvKB(BaseClass):
         self.fc = torch.nn.Linear(fc_length, 1, bias=False)
     
     def init(self):
-        self.E.weight.data[0] = torch.ones(self.emb_dim['entity'])
-        self.R.weight.data[0] = torch.ones(self.emb_dim['relation'])
+        self.E.weight.data[0] = torch.zeros(self.emb_dim['entity'])
+        self.R.weight.data[0] = torch.zeros(self.emb_dim['relation'])
         xavier_uniform_(self.E.weight.data[1:])
         xavier_uniform_(self.R.weight.data[1:])
 
