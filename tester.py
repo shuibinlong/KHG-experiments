@@ -4,6 +4,7 @@ import numpy as np
 from measure import Measure
 from os import listdir
 from os.path import isfile, join
+from tqdm import tqdm
 
 class Tester:
     def __init__(self, dataset, model, valid_or_test, model_name, device):
@@ -116,7 +117,7 @@ class Tester:
         normalizer = 0
         # Contains the measure values for the given dataset (e.g. test for arity 2)
         current_rank = Measure()
-        for i, fact in enumerate(dataset):
+        for i, fact in tqdm(enumerate(dataset)):
             arity = self.dataset.max_arity - (fact == 0).sum()
             for j in range(1, arity + 1):
                 normalizer += 1
