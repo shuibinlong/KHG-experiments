@@ -11,10 +11,10 @@
     "hidden_drop": 0.3,
     "entity_emb_dim": 200,
     "conv": {
-        "reshape": [10, 20],
-        "filters": 32,
+        "reshape": [5, 40],
+        "filters": 100,
         "stride": 1,
-        "kernel_size": [3, 3],
+        "kernel_size": [5, 5],
         "use_bias": true,
         "feature_map_dropout": 0.2
     },

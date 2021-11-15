@@ -215,7 +215,7 @@ class Experiment:
                 number_of_positive = len(np.where(targets > 0)[0])
                 if self.model_name in ['HypE', 'HyperConvE']:
                     predictions = self.model.forward(r, e1, e2, e3, e4, e5, e6, ms, bs)
-                elif self.model_name in ['MTransH', 'HyperConvR']:
+                elif self.model_name in ['MTransH']:
                     predictions = self.model.forward(r, e1, e2, e3, e4, e5, e6, ms)
                 else:
                     predictions = self.model.forward(r, e1, e2, e3, e4, e5, e6)

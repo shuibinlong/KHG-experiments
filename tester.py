@@ -134,7 +134,7 @@ class Tester:
                         ms = torch.tensor(ms).float().to(self.device)
                         bs = torch.tensor(bs).float().to(self.device)
                         sim_scores = self.model(r, e1, e2, e3, e4, e5, e6, ms, bs).cpu().data.numpy()
-                    elif self.model_name in ['MTransH', 'HyperConvR']:
+                    elif self.model_name in ['MTransH']:
                         ms = np.zeros((len(r),6))
                         ms[:, 0:arity] = 1
                         ms = torch.tensor(ms).float().to(self.device)
