@@ -359,15 +359,15 @@ class HyperConvE(BaseClass):
 
     def convolve(self, e_idx, r):
         batch_size = e_idx.shape[0]
-        e = self.E(e_idx)
+        e = self.E(e_idx).view(-1, *self.emb_dim['reshape'])
+        r = r.view(-1, *self.emb_dim['reshape'])
 
-        mixed = torch.zeros((batch_size, self.emb_dim['entity'] * 2)).to(self.device)
+        mixed = torch.zeros((batch_size, self.emb_dim['reshape'][0] * 2, self.emb_dim['reshape'][1])).to(self.device)
         e_indice = torch.arange(0, mixed.shape[1], 2)
         r_indice = torch.arange(1, mixed.shape[1], 2)
-        mixed[:, e_indice] = e
-        mixed[:, r_indice] = r
-        mixed = mixed.view(-1, 1, self.emb_dim['reshape'][0] * 2, self.emb_dim['reshape'][1])
-        mixed = self.bn0(mixed)
+        mixed[:, e_indice, :] = e
+        mixed[:, r_indice, :] = r
+        mixed = self.bn0(mixed.unsqueeze(1))
     
         x = self.input_drop(mixed)
         x = self.conv(x)
@@ -376,9 +376,9 @@ class HyperConvE(BaseClass):
         x = self.feature_map_drop(x)
         x = x.view(batch_size, -1)
         x = self.fc(x)
-        x = self.hidden_drop(x)
         x = self.bn2(x)
         x = F.relu(x)
+        x = self.hidden_drop(x)
         return x        
 
     def forward(self, r_idx, e1_idx, e2_idx, e3_idx, e4_idx, e5_idx, e6_idx, ms, bs):
