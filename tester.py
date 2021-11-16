@@ -117,7 +117,7 @@ class Tester:
         normalizer = 0
         # Contains the measure values for the given dataset (e.g. test for arity 2)
         current_rank = Measure()
-        for i, fact in tqdm(enumerate(dataset)):
+        for i, fact in tqdm(enumerate(dataset), total=len(dataset)):
             arity = self.dataset.max_arity - (fact == 0).sum()
             for j in range(1, arity + 1):
                 normalizer += 1
