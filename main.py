@@ -213,7 +213,7 @@ class Experiment:
                 r, e1, e2, e3, e4, e5, e6, targets, ms, bs = self.dataset.next_batch(self.batch_size, neg_ratio=self.neg_ratio, device=self.device)
                 self.opt.zero_grad()
                 number_of_positive = len(np.where(targets > 0)[0])
-                if self.model_name in ['HypE', 'HyperConvE']:
+                if self.model_name in ['HypE', 'HyperConvR', 'HyperConvE']:
                     predictions = self.model.forward(r, e1, e2, e3, e4, e5, e6, ms, bs)
                 elif self.model_name in ['MTransH']:
                     predictions = self.model.forward(r, e1, e2, e3, e4, e5, e6, ms)
@@ -230,7 +230,7 @@ class Experiment:
             print('Iteration #{}: loss={}, time={}'.format(it, losses, time.time() - st))
 
             # Evaluate the model every 100th iteration or if it is the last iteration
-            if (it % 200 == 0) or (it == self.num_iterations):
+            if (it % 100 == 0) or (it == self.num_iterations):
                 self.model.eval()
                 with torch.no_grad():
                     print('validation:')
