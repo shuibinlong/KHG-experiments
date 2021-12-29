@@ -9,10 +9,10 @@
     "nr": 10,
     "input_drop": 0.2,
     "hidden_drop": 0.3,
-    "entity_emb_dim": 100,
+    "emb_dim": 100,
     "conv": {
         "reshape": [10, 10],
-        "filters": 40,
+        "filters": 8,
         "stride": 1,
         "kernel_size": [5, 5],
         "use_bias": true,
