@@ -347,7 +347,7 @@ class HyperConvE(BaseClass):
         self.max_arity = 6
         self.E = torch.nn.Embedding(dataset.num_ent(), self.emb_dim, padding_idx=0)
         self.R = torch.nn.Embedding(dataset.num_rel(), self.emb_dim, padding_idx=0)
-        self.P = Parameter(torch.empty((self.max_arity, self.emb_dim, self.emb_dim)))
+        self.P = Parameter(torch.empty((self.max_arity, self.emb_dim)))
         self.input_drop = torch.nn.Dropout(kwargs['input_drop'])
         self.hidden_drop = torch.nn.Dropout(kwargs['hidden_drop'])
         self.feature_map_drop = torch.nn.Dropout2d(kwargs['conv']['feature_map_dropout'])
@@ -361,7 +361,8 @@ class HyperConvE(BaseClass):
         self.filter_h = (self.reshape[0] - self.kernel_size[0]) // self.stride + 1
         self.filter_w = (self.reshape[1] * 2 - self.kernel_size[1]) // self.stride + 1
         fc_length = self.conv_out_channels * self.filter_h * self.filter_w
-        self.fc = torch.nn.Linear(fc_length, self.emb_dim)
+        self.fc1 = torch.nn.Linear(fc_length, self.emb_dim)
+        self.fc2 = torch.nn.Linear(self.emb_dim, 1)
     
     def init(self):
         xavier_uniform_(self.E.weight.data[1:])
@@ -372,7 +373,8 @@ class HyperConvE(BaseClass):
         batch_size = e_idx.shape[0]
         
         e = self.E(e_idx).view(-1, 1, *self.reshape)
-        r = r.mm(self.P[pos]).view(-1, 1, *self.reshape)
+        p = self.P[pos].unsqueeze(0).repeat_interleave(batch_size, 0)
+        r = (r + p).view(-1, 1, *self.reshape)
         stacked_inputs = torch.cat([e, r], 3) # (batch_size, 1, x1, 2*y1)
         
         stacked_inputs = self.bn0(stacked_inputs)
@@ -382,7 +384,7 @@ class HyperConvE(BaseClass):
         x = F.relu(x)
         x = self.feature_map_drop(x)
         x = x.view(batch_size, -1)  # (batch_size, emb_dim)
-        x = self.fc(x)  # (batch_size, emb_dim)
+        x = self.fc1(x)  # (batch_size, emb_dim)
         x = self.hidden_drop(x)
         x = self.bn2(x)
         x = F.relu(x)
@@ -399,7 +401,7 @@ class HyperConvE(BaseClass):
         
         y = e1 * e2 * e3 * e4 * e5 * e6
         y = self.hidden_drop(y)
-        y = torch.sum(y, dim=1)
+        y = self.fc2(y).view(-1)
         return y
 
 
