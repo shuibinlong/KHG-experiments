@@ -19,6 +19,7 @@
         "feature_map_dropout": 0.2
     },
     "test": false,
+    "cuda": 0,
     "no_test_by_arity": false,
     "pretrained": null,
     "output_dir": null,

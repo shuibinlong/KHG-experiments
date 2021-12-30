@@ -34,7 +34,10 @@ class Experiment:
         self.restartable = config.get('restartable')
         self.opt = config.get('optimizer')
         self.reg = config.get('weight_decay')
-        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        if config.get('cuda') is not None and torch.cuda.is_available():
+            self.device = torch.device(f"cuda:{config.get('cuda')}")
+        else:
+            self.device = torch.device('cpu')
         self.kwargs = config
 
         # Load the dataset
